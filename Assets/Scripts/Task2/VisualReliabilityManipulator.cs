@@ -4,6 +4,15 @@ using UnityEngine.Rendering.Universal;
 
 namespace UnityVirtual.Task2
 {
+    // 先ほどのコードでこのenum（列挙型）の定義が漏れていました
+    public enum VisualReliabilityCondition
+    {
+        Baseline,
+        GaussianBlur,
+        PositionNoise,
+        ContrastReduction
+    }
+
     public class VisualReliabilityManipulator : MonoBehaviour
     {
         [SerializeField] private VisualReliabilityCondition condition;
