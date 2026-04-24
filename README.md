@@ -1,55 +1,95 @@
-# Meta Quest 3 + sEMG VR実験システム
+# VHI実験システム (Task A: SoO計測 & Task B: SoA計測)
 
-本プロジェクトは、Meta Quest 3を用いたハンドトラッキングVR環境において、外部のsEMG（表面筋電図）デバイスとLSL（Lab Streaming Layer）通信を用いて同期し、3つのタスク（インテンショナル・バインディング、ベイズ統合に基づく視覚・固有受容感覚の重み付け、ペリパーソナルスペース）を実行・計測するシステムです。
+本プロジェクトは、Meta Quest 3を用いたハンドトラッキングVR環境において、バーチャルハンドイリュージョン（VHI）を誘発し、身体所有感（SoO）と主体感（SoA）を客観的・定量的に計測するための実験システムです。
 
-## 依存パッケージ・環境
-- **Unity バージョン**: Unity 6 (6000.4.3f1)
-- **テンプレート**: VR (Basic) または 3D (URP)
-- **外部ライブラリ**: 
-  - `LSL4Unity` (および `liblsl` DLLファイル): sEMGデータの受信に必須。
+## 1. 実験概要
 
-## 推奨シーン構成
+### Task A：身体所有感 (Sense of Ownership) の計測
+- **目的**: 視覚フィードバック（自動動作）に対する SoO を、EMG motor overflow 等を用いて客観的に測定する。
+- **条件**: 
+  - `sync`: 仮想手を実際の手の位置に表示。
+  - `async`: 仮想手を実際の手から2cm遠位（Z方向）にオフセットして表示。
+- **動作**: 4種類のプロシージャルアニメーション（手首伸展/屈曲、回内/回外）をランダムに再生。
 
-本システムは、目的別に以下のシーンを作成・運用することを推奨します。
+### Task B：主体感 (Sense of Agency) の計測
+- **目的**: 随意運動に対する映像遅延（Δt）を挿入し、QUEST法（適応的階段法）を用いて SoA の減衰閾値を推定する。
+- **計測**: 35試行のQUEST推定 + 20試行の固定遅延確認試行（計55試行）。
+- **トリガー**: ハンドトラッキングの速度ベースによる運動開始（Kinematic Onset）検知。
 
-1. **`Bootstrap`**: 実験全体の初期化、被験者IDの入力、グローバルなデータ管理オブジェクト（DontDestroyOnLoad）を生成するエントリーシーン。
-2. **`CalibrationAndPractice`**: 実際のタスクに入る前のLSL通信のキャリブレーション、およびQuestのハンドトラッキングの慣熟を行うシーン。
-3. **`MainExperiment`**: 本実験を行うメインシーン。シンプルなVR空間内で、以下のオブジェクト階層に従ってタスクを進行する。
-4. **`DeveloperSandbox`**: 開発・テスト用シーン。`MainExperiment` をベースに、sEMGのダミー入力（モック）や、各タスクの強制トリガーUIを配置し、単独での動作確認を行う。
+---
 
-## MainExperiment シーンのオブジェクト階層
+## 2. 動作環境
 
-シーン内は以下のルートオブジェクト（空のGameObject）を作成し、機能を分割して管理します。
+- **Unity**: Unity 6 (6000.4.3f1)
+- **Render Pipeline**: Universal Render Pipeline (URP)
+- **XR SDK**: Meta XR SDK (Oculus Integration)
+- **Communication**: Lab Streaming Layer (LSL) / `LSL4Unity` 使用
+- **Hardware**: Meta Quest 3 (PC接続 Link/AirLink 推奨)
+- **Input**: ハンドトラッキング（コントローラー不要）
 
-- `[Systems]`
-  - `ExperimentFlowManager`: 全体の状態遷移（練習、本番、休憩など）を管理。
-  - `BlockRetryController`: ブロックごとの再試行回数（最大2回まで）を追跡。
-  - `HandExercisePhaseController`: 30秒間の手指運動フェーズをコルーチンで制御。
-- `[XR]`
-  - `XR Origin (XR Rig)`: Meta Quest 3のカメラと基本トラッキング。Rendering設定でPost Processingを有効にすること。
-  - `LeftVirtualHandRoot` / `RightVirtualHandRoot`: `PhotorealHandRenderer` をアタッチ。インスペクターから `HandModelType` (Male_Average, Female_Average等) に応じた3Dモデルの切り替えが可能。
-- `[LSL]`
-  - `EmgLslInletReceiver`: LSL4Unityを利用し、>=1000Hz, 32chのsEMGストリームをリングバッファで受信。
-  - `EmgOnsetDetector`: 筋活動のオンセットを検出し、イベントを発火。
-  - `LslClockSynchronizer`: LSLとUnityのタイムスタンプのズレを補正。
-  - `LslEventMarkerPublisher`: 実験内の特定イベントをLSLのアウトレットとして送信。
-- `[Task1_SoA_SoO_IB]`
-  - `Task1Controller`: Task 1の進行を管理。
-  - `DelayedVirtualHandActuator`: OnsetDetectorの検知後、指定されたΔtの遅延を伴って仮想手を伸展させる。
-  - `QuestThresholdEstimator`: 回答の反転回数に応じた適応的階段法（QUEST法ベース）により遅延閾値を推定する。
-  - `LibetClockPresenter`: インテンショナル・バインディング計測用の時計UI。
-- `[Task2_BayesianWeight]`
-  - `Task2Controller`: Task 2の進行を管理。
-  - `VisualReliabilityManipulator`: URPの `Volume` コンポーネント（DepthOfField, ColorAdjustments等）を操作し、視覚精度（ガウシアンぼかし、コントラスト低下等）を動的に変更する。
-  - `TrialExclusionMarker`: VASスコアが3未満の場合に除外フラグを立てる。
-- `[Task3_PPS]`
-  - `Task3Controller`: Task 3の進行を管理。
-  - `KnifeApproachAnimator`: 特定の開始位置からターゲットに向けて等速でナイフを接近させる。
-  - `PpsMarkerEmitter`: 接近時のPPS境界判定用マーカーを処理。
-- `[UI]` (Canvas Render Mode: World Space)
-  - `SoASoOQuestionUI`: Task 1用のYes/No回答パネル。
-  - `LibetReportUI`: Task 1用の時計針位置の報告パネル。
-  - `VASInputUI`: Task 2用の0〜10のVAS入力パネル。
-  - `StillnessInstructionUI`: Task 3のナイフ接近時に静止を指示するテキストパネル。
-- `[Data]`
-  - `TrialResultStore`: 各試行のコンテキスト（`TrialContext`）と結果（`TrialResult`）のリストを保持し、セッションサマリー（`SessionSummary`）として記録・出力する。
+---
+
+## 3. シーン構成とオブジェクト階層
+
+`MainExperiment` シーンでは、以下の構造に従ってオブジェクトを配置します。
+
+### [Systems]
+- `ExperimentManager`: 実験全体のステートマシン管理。
+- `VHIInductionController`: 各タスク前の誘導フェーズ（タイマー）管理。
+
+### [XR]
+- `XR Origin (XR Rig)`: Quest 3 のカメラおよびトラッキング基盤。
+- `LeftVirtualHandRoot`: 被験者に見せる仮想手。`HandVisualizer.cs` をアタッチ。
+  - **制約**: 左手は実験対象のため、UI操作コンポーネント（Ray/Poke）を無効化すること。
+
+### [LSL]
+- `LSLMarkerSender`: 実験イベント（TrialStart, Onset等）をLSL経由で外部へ送信。
+
+### [TaskA_SoO] / [TaskB_SoA]
+- 各タスクの試行シーケンスを制御する `TaskAController` および `TaskBController` を配置。
+
+### [UI] (2系統分離)
+- `ExperimentUI`: **実験者用 (PC画面)**。`Screen Space - Overlay`。進行管理とデバッグ用。
+- `VASInputUI`: **被験者用 (VR内)**。`World Space Canvas`。右手（非実験手）でのみ操作。
+
+### [Data]
+- `VASRecorder`: VAS回答値に特化したCSV記録。
+
+---
+
+## 4. スクリプトの役割 (Obsidian Map)
+
+| ファイル名 | フォルダ | 役割 |
+|:---|:---|:---|
+| `ExperimentManager.cs` | Common | 実験全体の進行（State）を一元管理 |
+| `HandVisualizer.cs` | Common | 仮想手の描画、遅延適用、運動検知、自動動作 |
+| `RingBuffer.cs` | Common | GCフリーの姿勢データバッファ（VRのカクつき防止） |
+| `VHIInductionController.cs` | Common | VHI誘導（筆なぞり等）の時間制御 |
+| `TaskAController.cs` | TaskA | Task A（SoO）のブロック・試行制御 |
+| `TaskBController.cs` | TaskB | Task B（SoA）のQUEST法エンジンと試行制御 |
+| `LSLMarkerSender.cs` | LSL | LSLストリームへのマーカー文字列送出 |
+| `VASInputUI.cs` | UI | VR空間内のWorld Space Canvas制御 |
+| `ExperimentUI.cs` | UI | PCミラー画面上の管理UI・キーボード入力受付 |
+| `VASRecorder.cs` | Data | VAS値の独立CSVロギング |
+
+---
+
+## 5. セットアップと実行手順
+
+1. **手の関節紐付け**: 
+   `HandVisualizer` の `Actual Joints` と `Virtual Joints` 配列に、トラッキング対象と仮想手の関節を**同じ順番で**ドラッグ&ドロップします。
+2. **UI操作制限**: 
+   左手プレハブから `XR Ray Interactor` 等を削除し、被験者が左手でUIに触れられないようにします。右手にのみ操作権限を与えます。
+3. **LSLの準備**: 
+   外部の筋電図記録ソフト等で "UnityMarkers" ストリームが受信可能な状態にします。
+4. **データの保存先**: 
+   実験データ（CSV）は以下に保存されます：  
+   `Application.persistentDataPath/SessionData/yyyyMMdd/`
+
+---
+
+## 6. 注意事項
+
+- 実験中は **右手のみ** でUIを操作してください。
+- Task B の Onset 検知感度は `HandVisualizer` の `Velocity Threshold` で調整可能です。
+- VASの値が 3 未満の場合、システムは自動的に再誘導またはブロック除外の判定を行います。
