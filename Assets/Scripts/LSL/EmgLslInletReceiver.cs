@@ -35,7 +35,7 @@ namespace UnityVirtual.LSL
             // LSLストリームの解決と接続
             if (inlet == null)
             {
-                var results = LSL.LSL.resolve_stream("type", streamType, 1, 0.0);
+                var results = global::LSL.LSL.resolve_stream("type", streamType, 1, 0.0);
                 if (results.Length > 0)
                 {
                     inlet = new StreamInlet(results[0]);
