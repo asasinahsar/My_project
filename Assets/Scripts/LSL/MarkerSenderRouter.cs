@@ -68,7 +68,7 @@ namespace LSL
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[MarkerSenderRouter] Marker send failed: {ex.Message}");
+                Debug.LogWarning($"[MarkerSenderRouter] Marker send failed ({ex.GetType().Name}): {ex.Message}\n{ex.StackTrace}");
             }
         }
     }

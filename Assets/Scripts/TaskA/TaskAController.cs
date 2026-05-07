@@ -24,6 +24,7 @@ public class TaskAController : MonoBehaviour
     private bool isExcludedBlock = false;
     private const int TotalBlocks = 2;
     private int completedBlocks = 0;
+    private bool blockCompletionRecorded = false;
     private IMarkerSender markerSender;
 
     private void Awake()
@@ -74,9 +75,14 @@ public class TaskAController : MonoBehaviour
 
     private void HandleStateChanged(ExperimentState state)
     {
-        if (state == ExperimentState.TaskA_Main)
+        if (state == ExperimentState.TaskA_Induction)
+        {
+            blockCompletionRecorded = false;
+        }
+        else if (state == ExperimentState.TaskA_Main)
         {
             isExcludedBlock = false; // VAS判定による除外フラグがあればここで受け取る設計も可能
+            blockCompletionRecorded = false;
             StartCoroutine(TaskAMainRoutine());
         }
     }
@@ -136,8 +142,10 @@ public class TaskAController : MonoBehaviour
 
     private void CompleteCurrentBlock()
     {
+        if (blockCompletionRecorded) return;
         if (completedBlocks >= TotalBlocks) return;
 
+        blockCompletionRecorded = true;
         completedBlocks++;
         if (completedBlocks < TotalBlocks)
         {
