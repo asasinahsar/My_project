@@ -3,12 +3,15 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using LSL;
+using UnityEngine.Serialization;
 
 public class TaskBController : MonoBehaviour
 {
     [Header("Dependencies")]
     [SerializeField] private HandVisualizer handVisualizer;
-    [SerializeField] private LSLMarkerSender markerSender;
+    [FormerlySerializedAs("markerSender")]
+    [SerializeField] private MonoBehaviour markerSenderBehaviour;
 
     [Header("Trial Settings")]
     public int questTrialsCount = 35;
@@ -22,12 +25,22 @@ public class TaskBController : MonoBehaviour
     public event Action OnSoAWindowClosed;
 
     private string logFilePath;
+    private IMarkerSender markerSender;
     
     // QUEST法用の確率密度関数（0〜1000msの各遅延閾値に対する確率）
     private float[] questPdf;
     private const int MaxDelayMs = 1000;
     
     private List<float> fixedTrialsDelay;
+
+    private void Awake()
+    {
+        markerSender = markerSenderBehaviour as IMarkerSender;
+        if (markerSender == null)
+        {
+            Debug.LogWarning("[TaskBController] Marker sender is not assigned or does not implement IMarkerSender.");
+        }
+    }
 
     private void Start()
     {
@@ -90,7 +103,7 @@ public class TaskBController : MonoBehaviour
             float trialStartTime = Time.realtimeSinceStartup;
 
             // 3. 試行開始マーカー送出
-            markerSender.SendMarker($"TrialStart_B_{trial}_Delta{currentDeltaMs}ms");
+            SendMarker($"TrialStart_B_{trial}_Delta{currentDeltaMs}ms");
 
             // 4. 運動開始（Onset）の待機
             bool motionDetected = false;
@@ -109,7 +122,7 @@ public class TaskBController : MonoBehaviour
             float motionOnsetTime = Time.realtimeSinceStartup;
 
             // 6. バーチャルハンドが動いた瞬間にマーカー送出
-            markerSender.SendMarker($"MotionOnset_B_Delta{currentDeltaMs}ms");
+            SendMarker($"MotionOnset_B_Delta{currentDeltaMs}ms");
 
             // 7. 実験者または被験者からのSoA有無（1/0）を記録（最大3秒待機）
             currentSoAResponse = -1;
@@ -129,7 +142,7 @@ public class TaskBController : MonoBehaviour
             // 8. 応答処理とQUEST更新
             if (currentSoAResponse != -1)
             {
-                markerSender.SendMarker($"SoAResponse_{currentSoAResponse}");
+                SendMarker($"SoAResponse_{currentSoAResponse}");
                 
                 // QUESTフェーズ中であれば事後分布を更新
                 if (trial <= questTrialsCount)
@@ -140,12 +153,12 @@ public class TaskBController : MonoBehaviour
             else
             {
                 // 3秒以内に回答がなかった場合
-                markerSender.SendMarker("SoAResponse_Missed");
+                SendMarker("SoAResponse_Missed");
                 Debug.LogWarning($"[Task B] Trial {trial}: No response within 3s window.");
             }
 
             // 9. 試行終了マーカーとロギング
-            markerSender.SendMarker($"TrialEnd_B_{trial}");
+            SendMarker($"TrialEnd_B_{trial}");
             LogTrialData(trial, currentDeltaMs, currentSoAResponse, trialStartTime, motionOnsetTime, trialEndTime, currentQuestEstimate);
         }
 
@@ -163,6 +176,12 @@ public class TaskBController : MonoBehaviour
     {
         string logLine = $"{trialNo},{deltaMs},{response},{startTime:F3},{onsetTime:F3},{endTime:F3},{questEst:F2}\n";
         File.AppendAllText(logFilePath, logLine);
+    }
+
+    private void SendMarker(string marker)
+    {
+        if (markerSender == null) return;
+        markerSender.SendMarker(marker);
     }
 
     // ==========================================================

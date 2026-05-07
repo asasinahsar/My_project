@@ -1,12 +1,26 @@
 using UnityEngine;
 using System.Collections;
+using LSL;
+using UnityEngine.Serialization;
 
 public class VHIInductionController : MonoBehaviour
 {
     [Header("Dependencies")]
     [SerializeField] private HandVisualizer handVisualizer;
-    [SerializeField] private LSLMarkerSender markerSender;
+    [FormerlySerializedAs("markerSender")]
+    [SerializeField] private MonoBehaviour markerSenderBehaviour;
     [SerializeField] private TaskAController taskAController; // 条件(sync/async)の取得用
+
+    private IMarkerSender markerSender;
+
+    private void Awake()
+    {
+        markerSender = markerSenderBehaviour as IMarkerSender;
+        if (markerSender == null)
+        {
+            Debug.LogWarning("[VHIInductionController] Marker sender is not assigned or does not implement IMarkerSender.");
+        }
+    }
 
     private void Start()
     {
@@ -48,13 +62,13 @@ public class VHIInductionController : MonoBehaviour
         // 空間的オフセットの適用（syncなら0cm, asyncなら2cm遠位）
         handVisualizer.SetAsyncOffset(condition == "async");
         
-        markerSender.SendMarker($"InductionStart_A_{condition}");
+        SendMarker($"InductionStart_A_{condition}");
         Debug.Log($"[VHI Induction] Task A Phase 1 (Brush Stroking) Started. Condition: {condition}");
 
         // Phase 1: 筆なぞり（受動的SoO最大化） 120秒
         yield return new WaitForSeconds(120f);
 
-        markerSender.SendMarker($"InductionEnd_A_{condition}");
+        SendMarker($"InductionEnd_A_{condition}");
         Debug.Log("[VHI Induction] Task A Phase 1 Ended. Transitioning to VAS Check.");
 
         // VAS確認ステートへ自動遷移
@@ -63,7 +77,7 @@ public class VHIInductionController : MonoBehaviour
 
     private IEnumerator TaskBInductionRoutine()
     {
-        markerSender.SendMarker("InductionStart_B");
+        SendMarker("InductionStart_B");
         Debug.Log("[VHI Induction] Task B Phase 1 (Brush Stroking) Started.");
 
         // Phase 1: 筆なぞり 60秒
@@ -72,13 +86,13 @@ public class VHIInductionController : MonoBehaviour
         // Phase 2: 慣らし随意運動（能動的SoA最大化） 60秒
         // Δt = 0ms（遅延なし）に設定して完全同期させる
         handVisualizer.delayMs = 0f;
-        markerSender.SendMarker("ActiveMovementStart_B");
+        SendMarker("ActiveMovementStart_B");
         Debug.Log("[VHI Induction] Task B Phase 2 (Active Movement, Δt=0) Started.");
 
         yield return new WaitForSeconds(60f);
 
-        markerSender.SendMarker("ActiveMovementEnd_B");
-        markerSender.SendMarker("InductionEnd_B");
+        SendMarker("ActiveMovementEnd_B");
+        SendMarker("InductionEnd_B");
         Debug.Log("[VHI Induction] Task B Induction Ended. Transitioning to VAS Check.");
 
         // VAS確認ステートへ自動遷移
@@ -89,18 +103,24 @@ public class VHIInductionController : MonoBehaviour
     {
         string markerSuffix = task == "A" ? $"_{task}_{condition}" : $"_{task}";
         
-        markerSender.SendMarker($"BaselineStart{markerSuffix}");
+        SendMarker($"BaselineStart{markerSuffix}");
         Debug.Log($"[VHI Induction] Baseline {task} Started. Please keep hand static for 30s.");
 
         // 安静・ベースラインEMG確立 30秒
         yield return new WaitForSeconds(30f);
 
-        markerSender.SendMarker($"BaselineEnd{markerSuffix}");
+        SendMarker($"BaselineEnd{markerSuffix}");
         
         // メインタスクへ自動遷移
         if (task == "A")
             ExperimentManager.Instance.ChangeState(ExperimentState.TaskA_Main);
         else
             ExperimentManager.Instance.ChangeState(ExperimentState.TaskB_Main);
+    }
+
+    private void SendMarker(string marker)
+    {
+        if (markerSender == null) return;
+        markerSender.SendMarker(marker);
     }
 }

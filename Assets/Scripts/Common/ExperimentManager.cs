@@ -1,5 +1,7 @@
 using UnityEngine;
 using System;
+using LSL;
+using UnityEngine.Serialization;
 
 public enum ExperimentState
 {
@@ -23,7 +25,20 @@ public class ExperimentManager : MonoBehaviour
     public static ExperimentManager Instance { get; private set; }
 
     [Header("Dependencies")]
-    [SerializeField] private LSLMarkerSender markerSender;
+    [FormerlySerializedAs("markerSender")]
+    [SerializeField] private MonoBehaviour markerSenderBehaviour;
+    [SerializeField] private TaskAController taskAController;
+
+    [Header("UI Panels (State Based)")]
+    [SerializeField] private GameObject idlePanel;
+    [SerializeField] private GameObject consentPanel;
+    [SerializeField] private GameObject practicePanel;
+    [SerializeField] private GameObject taskAPanel;
+    [SerializeField] private GameObject taskBPanel;
+    [SerializeField] private GameObject blockRestPanel;
+    [SerializeField] private GameObject finishedPanel;
+
+    private IMarkerSender markerSender;
 
     public ExperimentState CurrentState { get; private set; } = ExperimentState.Idle;
 
@@ -37,6 +52,17 @@ public class ExperimentManager : MonoBehaviour
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
+
+        markerSender = markerSenderBehaviour as IMarkerSender;
+        if (markerSender == null)
+        {
+            Debug.LogWarning("[ExperimentManager] Marker sender is not assigned or does not implement IMarkerSender.");
+        }
+    }
+
+    private void Start()
+    {
+        UpdateStatePanels(CurrentState);
     }
 
     /// <summary>
@@ -48,18 +74,19 @@ public class ExperimentManager : MonoBehaviour
 
         CurrentState = newState;
         Debug.Log($"[ExperimentManager] State Transition -> {newState}");
+        UpdateStatePanels(newState);
         
         // ステート突入時の汎用マーカー送出
         switch (newState)
         {
             case ExperimentState.Practice:
-                markerSender.SendMarker("PracticeStart");
+                SendMarker("PracticeStart");
                 break;
             case ExperimentState.BlockRest:
-                markerSender.SendMarker("RestStart");
+                SendMarker("RestStart");
                 break;
             case ExperimentState.Finished:
-                markerSender.SendMarker("ExpEnd");
+                SendMarker("ExpEnd");
                 break;
         }
 
@@ -71,7 +98,7 @@ public class ExperimentManager : MonoBehaviour
     /// </summary>
     public void EvaluateTaskAVAS(int vasValue, string condition)
     {
-        markerSender.SendMarker($"VAS_A_{condition}_{vasValue}");
+        SendMarker($"VAS_A_{condition}_{vasValue}");
 
         if (vasValue >= 3)
         {
@@ -91,7 +118,11 @@ public class ExperimentManager : MonoBehaviour
             else
             {
                 Debug.LogWarning("[ExperimentManager] Task A VAS < 3 after retry. Excluding Block.");
-                markerSender.SendMarker($"BlockExcluded_A_{condition}");
+                SendMarker($"BlockExcluded_A_{condition}");
+                if (taskAController != null)
+                {
+                    taskAController.MarkCurrentBlockExcluded();
+                }
                 taskARetryCount = 0;
                 ChangeState(ExperimentState.BlockRest);
             }
@@ -103,7 +134,7 @@ public class ExperimentManager : MonoBehaviour
     /// </summary>
     public void EvaluateTaskBVAS(int vasValue)
     {
-        markerSender.SendMarker($"VAS_B_{vasValue}");
+        SendMarker($"VAS_B_{vasValue}");
 
         if (vasValue >= 3)
         {
@@ -123,10 +154,39 @@ public class ExperimentManager : MonoBehaviour
             else
             {
                 Debug.LogWarning("[ExperimentManager] Task B VAS < 3 after retry. Excluding Block.");
-                markerSender.SendMarker("BlockExcluded_B");
+                SendMarker("BlockExcluded_B");
                 taskBRetryCount = 0;
                 ChangeState(ExperimentState.Finished);
             }
+        }
+    }
+
+    public void AdvanceState()
+    {
+        switch (CurrentState)
+        {
+            case ExperimentState.Idle:
+                ChangeState(ExperimentState.Consent);
+                break;
+            case ExperimentState.Consent:
+                ChangeState(ExperimentState.Practice);
+                break;
+            case ExperimentState.Practice:
+                ChangeState(ExperimentState.TaskA_Induction);
+                break;
+            case ExperimentState.BlockRest:
+                if (taskAController != null && taskAController.HasRemainingBlocks)
+                {
+                    ChangeState(ExperimentState.TaskA_Induction);
+                }
+                else
+                {
+                    ChangeState(ExperimentState.TaskB_Induction);
+                }
+                break;
+            default:
+                Debug.Log("[ExperimentManager] AdvanceState ignored for current phase.");
+                break;
         }
     }
 
@@ -137,5 +197,47 @@ public class ExperimentManager : MonoBehaviour
     {
         Debug.LogError("[ExperimentManager] Emergency Stop Triggered!");
         ChangeState(ExperimentState.Finished);
+    }
+
+    private void SendMarker(string marker)
+    {
+        if (markerSender == null) return;
+        markerSender.SendMarker(marker);
+    }
+
+    // Task A（自動バーチャルハンド動作）と Task B（QUEST法 + Δt遅延）のUI切替
+    private void UpdateStatePanels(ExperimentState state)
+    {
+        SetPanelActive(idlePanel, state == ExperimentState.Idle);
+        SetPanelActive(consentPanel, state == ExperimentState.Consent);
+        SetPanelActive(practicePanel, state == ExperimentState.Practice);
+        SetPanelActive(taskAPanel, IsTaskAState(state));
+        SetPanelActive(taskBPanel, IsTaskBState(state));
+        SetPanelActive(blockRestPanel, state == ExperimentState.BlockRest);
+        SetPanelActive(finishedPanel, state == ExperimentState.Finished);
+    }
+
+    private static void SetPanelActive(GameObject panel, bool isActive)
+    {
+        if (panel != null)
+        {
+            panel.SetActive(isActive);
+        }
+    }
+
+    private static bool IsTaskAState(ExperimentState state)
+    {
+        return state == ExperimentState.TaskA_Induction
+            || state == ExperimentState.TaskA_VASCheck
+            || state == ExperimentState.TaskA_Baseline
+            || state == ExperimentState.TaskA_Main;
+    }
+
+    private static bool IsTaskBState(ExperimentState state)
+    {
+        return state == ExperimentState.TaskB_Induction
+            || state == ExperimentState.TaskB_VASCheck
+            || state == ExperimentState.TaskB_Baseline
+            || state == ExperimentState.TaskB_Main;
     }
 }
