@@ -22,6 +22,7 @@ public class TaskAController : MonoBehaviour
 
     private string logFilePath;
     private bool isExcludedBlock = false;
+    // sync/async の2ブロック固定（変更する場合は条件分岐も更新）
     private const int TotalBlocks = 2;
     private int completedBlocks = 0;
     private bool blockCompletionRecorded = false;

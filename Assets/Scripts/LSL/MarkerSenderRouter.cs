@@ -19,14 +19,6 @@ namespace LSL
             SelectActiveSender();
         }
 
-        private void OnValidate()
-        {
-            if (!Application.isPlaying)
-            {
-                SelectActiveSender();
-            }
-        }
-
         private void SelectActiveSender()
         {
             IMarkerSender production = productionMarkerSender as IMarkerSender;

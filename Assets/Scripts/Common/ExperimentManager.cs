@@ -205,7 +205,7 @@ public class ExperimentManager : MonoBehaviour
         markerSender.SendMarker(marker);
     }
 
-    // Task A（自動バーチャルハンド動作）と Task B（QUEST法 + Δt遅延）のUI切替
+    // Task A（自動バーチャルハンド動作）と Task B（QUEST法 + Δt遅延）のUI切り替え
     private void UpdateStatePanels(ExperimentState state)
     {
         SetPanelActive(idlePanel, state == ExperimentState.Idle);
