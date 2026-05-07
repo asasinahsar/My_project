@@ -147,7 +147,10 @@ public class TaskAController : MonoBehaviour
         if (completedBlocks >= TotalBlocks) return;
 
         blockCompletionRecorded = true;
-        completedBlocks++;
+        int nextCompletedBlocks = completedBlocks + 1;
+        if (nextCompletedBlocks > TotalBlocks) return;
+
+        completedBlocks = nextCompletedBlocks;
         if (completedBlocks < TotalBlocks)
         {
             currentBlockIndex = completedBlocks;

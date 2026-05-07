@@ -217,7 +217,7 @@ public class ExperimentManager : MonoBehaviour
         SetPanelActive(finishedPanel, state == ExperimentState.Finished);
     }
 
-    private static void SetPanelActive(GameObject panel, bool isActive)
+    private void SetPanelActive(GameObject panel, bool isActive)
     {
         if (panel != null)
         {
