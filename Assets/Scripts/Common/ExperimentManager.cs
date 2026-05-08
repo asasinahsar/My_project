@@ -1,6 +1,5 @@
 using UnityEngine;
 using System;
-using UnityEngine.Serialization;
 
 public enum ExperimentState
 {
@@ -24,33 +23,20 @@ public class ExperimentManager : MonoBehaviour
     public static ExperimentManager Instance { get; private set; }
 
     [Header("Dependencies")]
-    [FormerlySerializedAs("markerSender")]
-    [SerializeField] private MonoBehaviour lslMarkerSender;
-    [SerializeField] private MonoBehaviour debugMarkerSender;
-    [SerializeField] private bool isTestMode;
+    [SerializeField] private LSLMarkerSender markerSender;
 
     public ExperimentState CurrentState { get; private set; } = ExperimentState.Idle;
-    public bool IsTestMode => isTestMode;
 
     // ステート変更時に他のコントローラー（TaskA/B ControllerやUI等）へ通知するイベント
     public event Action<ExperimentState> OnStateChanged;
 
     private int taskARetryCount = 0;
     private int taskBRetryCount = 0;
-    private IMarkerSender markerSender;
 
     private void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
-
-        RefreshMarkerSender();
-    }
-
-    private void OnValidate()
-    {
-        ValidateMarkerSender(lslMarkerSender, "LslMarkerSender");
-        ValidateMarkerSender(debugMarkerSender, "DebugMarkerSender");
     }
 
     /// <summary>
@@ -67,30 +53,17 @@ public class ExperimentManager : MonoBehaviour
         switch (newState)
         {
             case ExperimentState.Practice:
-                SendMarker("PracticeStart");
+                markerSender.SendMarker("PracticeStart");
                 break;
             case ExperimentState.BlockRest:
-                SendMarker("RestStart");
+                markerSender.SendMarker("RestStart");
                 break;
             case ExperimentState.Finished:
-                SendMarker("ExpEnd");
+                markerSender.SendMarker("ExpEnd");
                 break;
         }
 
         OnStateChanged?.Invoke(newState);
-    }
-
-    public void SwitchState(ExperimentState targetState, bool testMode)
-    {
-        bool modeChanged = isTestMode != testMode;
-        isTestMode = testMode;
-
-        if (modeChanged)
-        {
-            RefreshMarkerSender();
-        }
-
-        ChangeState(targetState);
     }
 
     /// <summary>
@@ -98,7 +71,7 @@ public class ExperimentManager : MonoBehaviour
     /// </summary>
     public void EvaluateTaskAVAS(int vasValue, string condition)
     {
-        SendMarker($"VAS_A_{condition}_{vasValue}");
+        markerSender.SendMarker($"VAS_A_{condition}_{vasValue}");
 
         if (vasValue >= 3)
         {
@@ -118,7 +91,7 @@ public class ExperimentManager : MonoBehaviour
             else
             {
                 Debug.LogWarning("[ExperimentManager] Task A VAS < 3 after retry. Excluding Block.");
-                SendMarker($"BlockExcluded_A_{condition}");
+                markerSender.SendMarker($"BlockExcluded_A_{condition}");
                 taskARetryCount = 0;
                 ChangeState(ExperimentState.BlockRest);
             }
@@ -130,7 +103,7 @@ public class ExperimentManager : MonoBehaviour
     /// </summary>
     public void EvaluateTaskBVAS(int vasValue)
     {
-        SendMarker($"VAS_B_{vasValue}");
+        markerSender.SendMarker($"VAS_B_{vasValue}");
 
         if (vasValue >= 3)
         {
@@ -150,7 +123,7 @@ public class ExperimentManager : MonoBehaviour
             else
             {
                 Debug.LogWarning("[ExperimentManager] Task B VAS < 3 after retry. Excluding Block.");
-                SendMarker("BlockExcluded_B");
+                markerSender.SendMarker("BlockExcluded_B");
                 taskBRetryCount = 0;
                 ChangeState(ExperimentState.Finished);
             }
@@ -164,33 +137,5 @@ public class ExperimentManager : MonoBehaviour
     {
         Debug.LogError("[ExperimentManager] Emergency Stop Triggered!");
         ChangeState(ExperimentState.Finished);
-    }
-
-    private void RefreshMarkerSender()
-    {
-        MonoBehaviour senderBehaviour = isTestMode ? debugMarkerSender : lslMarkerSender;
-        markerSender = senderBehaviour as IMarkerSender;
-
-        if (senderBehaviour == null)
-        {
-            Debug.LogWarning($"[ExperimentManager] {(isTestMode ? "DebugMarkerSender" : "LslMarkerSender")} is not assigned.");
-        }
-        else if (markerSender == null)
-        {
-            Debug.LogWarning($"[ExperimentManager] Assigned {(isTestMode ? "DebugMarkerSender" : "LslMarkerSender")} does not implement IMarkerSender.");
-        }
-    }
-
-    private void SendMarker(string marker)
-    {
-        markerSender?.SendMarker(marker);
-    }
-
-    private void ValidateMarkerSender(MonoBehaviour senderBehaviour, string senderName)
-    {
-        if (senderBehaviour != null && senderBehaviour is not IMarkerSender)
-        {
-            Debug.LogWarning($"[ExperimentManager] Assigned {senderName} does not implement IMarkerSender.");
-        }
     }
 }

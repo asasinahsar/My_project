@@ -28,8 +28,6 @@ public class TaskBController : MonoBehaviour
     private const int MaxDelayMs = 1000;
     
     private List<float> fixedTrialsDelay;
-    private Coroutine taskBMainCoroutine;
-    private Action movementDetectedHandler;
 
     private void Start()
     {
@@ -39,8 +37,6 @@ public class TaskBController : MonoBehaviour
 
     private void OnDestroy()
     {
-        AbortTask();
-
         if (ExperimentManager.Instance != null)
             ExperimentManager.Instance.OnStateChanged -= HandleStateChanged;
     }
@@ -63,12 +59,7 @@ public class TaskBController : MonoBehaviour
         {
             InitializeQuest();
             GenerateFixedTrials();
-            AbortTask();
-            taskBMainCoroutine = StartCoroutine(TaskBMainRoutine());
-        }
-        else
-        {
-            AbortTask();
+            StartCoroutine(TaskBMainRoutine());
         }
     }
 
@@ -103,13 +94,13 @@ public class TaskBController : MonoBehaviour
 
             // 4. 運動開始（Onset）の待機
             bool motionDetected = false;
-            movementDetectedHandler = () => motionDetected = true;
-            handVisualizer.OnMovementDetected += movementDetectedHandler;
+            Action onDetect = () => motionDetected = true;
+            handVisualizer.OnMovementDetected += onDetect;
             handVisualizer.ResetMotionDetection();
 
             // 実際の運動が検知されるまで待機（タイムスタンプはマーカー側で記録）
             while (!motionDetected) yield return null;
-            UnsubscribeMovementDetection();
+            handVisualizer.OnMovementDetected -= onDetect;
 
             // 5. 仮想手が動くまでの遅延（Δt）を待機
             if (currentDeltaMs > 0)
@@ -160,7 +151,6 @@ public class TaskBController : MonoBehaviour
 
         Debug.Log($"[Task B] Completed! Final Estimated τ_SoA: {QuestMean()}ms");
         ExperimentManager.Instance.ChangeState(ExperimentState.Finished);
-        taskBMainCoroutine = null;
     }
 
     // UIやキーボードから応答をセットするためのパブリックメソッド
@@ -252,32 +242,5 @@ public class TaskBController : MonoBehaviour
             fixedTrialsDelay[i] = fixedTrialsDelay[randIndex];
             fixedTrialsDelay[randIndex] = temp;
         }
-    }
-
-    public void AbortTask()
-    {
-        if (taskBMainCoroutine != null)
-        {
-            StopCoroutine(taskBMainCoroutine);
-            taskBMainCoroutine = null;
-        }
-
-        UnsubscribeMovementDetection();
-        OnSoAWindowClosed?.Invoke();
-    }
-
-    private void UnsubscribeMovementDetection()
-    {
-        if (movementDetectedHandler == null)
-        {
-            return;
-        }
-
-        if (handVisualizer != null)
-        {
-            handVisualizer.OnMovementDetected -= movementDetectedHandler;
-        }
-
-        movementDetectedHandler = null;
     }
 }

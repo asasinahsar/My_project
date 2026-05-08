@@ -18,7 +18,6 @@ public class TaskAController : MonoBehaviour
 
     private string logFilePath;
     private bool isExcludedBlock = false;
-    private Coroutine taskAMainCoroutine;
 
     private void Start()
     {
@@ -28,8 +27,6 @@ public class TaskAController : MonoBehaviour
 
     private void OnDestroy()
     {
-        AbortTask();
-
         if (ExperimentManager.Instance != null)
         {
             ExperimentManager.Instance.OnStateChanged -= HandleStateChanged;
@@ -56,8 +53,7 @@ public class TaskAController : MonoBehaviour
         if (state == ExperimentState.TaskA_Main)
         {
             isExcludedBlock = false; // VAS判定による除外フラグがあればここで受け取る設計も可能
-            AbortTask();
-            taskAMainCoroutine = StartCoroutine(TaskAMainRoutine());
+            StartCoroutine(TaskAMainRoutine());
         }
         else if (state == ExperimentState.BlockRest)
         {
@@ -66,12 +62,6 @@ public class TaskAController : MonoBehaviour
             {
                 currentBlockIndex++;
             }
-
-            AbortTask();
-        }
-        else
-        {
-            AbortTask();
         }
     }
 
@@ -113,26 +103,11 @@ public class TaskAController : MonoBehaviour
         
         // 20試行終わったらブロック間休憩へ
         ExperimentManager.Instance.ChangeState(ExperimentState.BlockRest);
-        taskAMainCoroutine = null;
     }
 
     private void LogTrialData(int trialNo, string condition, string motionType, float startTime, float onsetTime, float endTime, bool excluded)
     {
         string logLine = $"{trialNo},{condition},{motionType},{startTime:F3},{onsetTime:F3},{endTime:F3},{(excluded ? 1 : 0)}\n";
         File.AppendAllText(logFilePath, logLine);
-    }
-
-    public void AbortTask()
-    {
-        if (taskAMainCoroutine != null)
-        {
-            StopCoroutine(taskAMainCoroutine);
-            taskAMainCoroutine = null;
-        }
-
-        if (handVisualizer != null)
-        {
-            handVisualizer.StopAutoMotion();
-        }
     }
 }
