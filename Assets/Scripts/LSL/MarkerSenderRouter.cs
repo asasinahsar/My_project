@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityVirtual.LSL;
 
 namespace LSL
 {

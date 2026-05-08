@@ -4,6 +4,7 @@ using System.IO;
 using System;
 using LSL;
 using UnityEngine.Serialization;
+using UnityVirtual.LSL;
 
 public class TaskAController : MonoBehaviour
 {
