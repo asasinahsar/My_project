@@ -1,7 +1,6 @@
 using UnityEngine;
 using System;
 using UnityEngine.Serialization;
-using LSL;
 
 public enum ExperimentState
 {
@@ -46,6 +45,12 @@ public class ExperimentManager : MonoBehaviour
         else Destroy(gameObject);
 
         RefreshMarkerSender();
+    }
+
+    private void OnValidate()
+    {
+        ValidateMarkerSender(lslMarkerSender, "LslMarkerSender");
+        ValidateMarkerSender(debugMarkerSender, "DebugMarkerSender");
     }
 
     /// <summary>
@@ -175,5 +180,13 @@ public class ExperimentManager : MonoBehaviour
     private void SendMarker(string marker)
     {
         markerSender?.SendMarker(marker);
+    }
+
+    private void ValidateMarkerSender(MonoBehaviour senderBehaviour, string senderName)
+    {
+        if (senderBehaviour != null && senderBehaviour is not IMarkerSender)
+        {
+            Debug.LogWarning($"[ExperimentManager] Assigned {senderName} does not implement IMarkerSender.");
+        }
     }
 }
