@@ -1,6 +1,7 @@
 using UnityEngine;
 using System;
 using UnityEngine.Serialization;
+using UnityVirtual.LSL;
 
 public enum ExperimentState
 {
@@ -16,7 +17,10 @@ public enum ExperimentState
     TaskB_VASCheck,     // Task B VAS確認
     TaskB_Baseline,     // Task B 安静ベースライン（30秒）
     TaskB_Main,         // Task B 計測（55試行）
-    Finished
+    Finished,
+    StartMenu,
+    TestMenu,
+    ExperimentMenu
 }
 
 public class ExperimentManager : MonoBehaviour
@@ -25,9 +29,28 @@ public class ExperimentManager : MonoBehaviour
 
     [Header("Dependencies")]
     [FormerlySerializedAs("markerSender")]
+    [SerializeField] private MonoBehaviour markerSenderBehaviour;
     [SerializeField] private MonoBehaviour lslMarkerSender;
     [SerializeField] private MonoBehaviour debugMarkerSender;
-    [SerializeField] private bool isTestMode;
+    [SerializeField] private TaskAController taskAController;
+    [SerializeField] private TaskBController taskBController;
+    [SerializeField] private VHIInductionController vhiInductionController;
+
+    [Header("UI Panels (Menu)")]
+    [SerializeField] private GameObject startMenuPanel;
+    [SerializeField] private GameObject testMenuPanel;
+    [SerializeField] private GameObject experimentMenuPanel;
+
+    [Header("UI Panels (State Based)")]
+    [SerializeField] private GameObject idlePanel;
+    [SerializeField] private GameObject consentPanel;
+    [SerializeField] private GameObject practicePanel;
+    [SerializeField] private GameObject taskAPanel;
+    [SerializeField] private GameObject taskBPanel;
+    [SerializeField] private GameObject blockRestPanel;
+    [SerializeField] private GameObject finishedPanel;
+
+    [SerializeField] private bool isTestMode = false;
 
     public ExperimentState CurrentState { get; private set; } = ExperimentState.Idle;
     public bool IsTestMode => isTestMode;
@@ -38,6 +61,7 @@ public class ExperimentManager : MonoBehaviour
     private int taskARetryCount = 0;
     private int taskBRetryCount = 0;
     private IMarkerSender markerSender;
+    private bool hasLoggedMissingStartMenu = false;
 
     private void Awake()
     {
@@ -47,8 +71,21 @@ public class ExperimentManager : MonoBehaviour
         RefreshMarkerSender();
     }
 
+    private void Start()
+    {
+        if (startMenuPanel != null)
+        {
+            ChangeState(ExperimentState.StartMenu);
+        }
+        else
+        {
+            UpdateStatePanels(CurrentState);
+        }
+    }
+
     private void OnValidate()
     {
+        ValidateMarkerSender(markerSenderBehaviour, "markerSender");
         ValidateMarkerSender(lslMarkerSender, "LslMarkerSender");
         ValidateMarkerSender(debugMarkerSender, "DebugMarkerSender");
     }
@@ -62,7 +99,8 @@ public class ExperimentManager : MonoBehaviour
 
         CurrentState = newState;
         Debug.Log($"[ExperimentManager] State Transition -> {newState}");
-        
+        UpdateStatePanels(newState);
+
         // ステート突入時の汎用マーカー送出
         switch (newState)
         {
@@ -80,17 +118,34 @@ public class ExperimentManager : MonoBehaviour
         OnStateChanged?.Invoke(newState);
     }
 
-    public void SwitchState(ExperimentState targetState, bool testMode)
+    public void ShowStartMenu()
     {
-        bool modeChanged = isTestMode != testMode;
-        isTestMode = testMode;
+        SwitchState(ExperimentState.StartMenu, false);
+    }
 
-        if (modeChanged)
-        {
-            RefreshMarkerSender();
-        }
+    public void ShowTestMenu()
+    {
+        SwitchState(ExperimentState.TestMenu, true);
+    }
 
-        ChangeState(targetState);
+    public void ShowExperimentMenu()
+    {
+        SwitchState(ExperimentState.ExperimentMenu, false);
+    }
+
+    public void StartTestTaskA()
+    {
+        SwitchState(ExperimentState.TaskA_Induction, true);
+    }
+
+    public void StartTestTaskB()
+    {
+        SwitchState(ExperimentState.TaskB_Induction, true);
+    }
+
+    public void StartExperiment()
+    {
+        SwitchState(ExperimentState.Consent, false);
     }
 
     /// <summary>
@@ -119,6 +174,10 @@ public class ExperimentManager : MonoBehaviour
             {
                 Debug.LogWarning("[ExperimentManager] Task A VAS < 3 after retry. Excluding Block.");
                 SendMarker($"BlockExcluded_A_{condition}");
+                if (taskAController != null)
+                {
+                    taskAController.MarkCurrentBlockExcluded();
+                }
                 taskARetryCount = 0;
                 ChangeState(ExperimentState.BlockRest);
             }
@@ -157,6 +216,35 @@ public class ExperimentManager : MonoBehaviour
         }
     }
 
+    public void AdvanceState()
+    {
+        switch (CurrentState)
+        {
+            case ExperimentState.Idle:
+                ChangeState(ExperimentState.Consent);
+                break;
+            case ExperimentState.Consent:
+                ChangeState(ExperimentState.Practice);
+                break;
+            case ExperimentState.Practice:
+                ChangeState(ExperimentState.TaskA_Induction);
+                break;
+            case ExperimentState.BlockRest:
+                if (taskAController != null && taskAController.HasRemainingBlocks)
+                {
+                    ChangeState(ExperimentState.TaskA_Induction);
+                }
+                else
+                {
+                    ChangeState(ExperimentState.TaskB_Induction);
+                }
+                break;
+            default:
+                Debug.Log("[ExperimentManager] AdvanceState ignored for current phase.");
+                break;
+        }
+    }
+
     /// <summary>
     /// UIの「緊急停止」ボタンなどから呼び出されるメソッド
     /// </summary>
@@ -166,9 +254,104 @@ public class ExperimentManager : MonoBehaviour
         ChangeState(ExperimentState.Finished);
     }
 
+    // Task A（自動バーチャルハンド動作）と Task B（QUEST法 + Δt遅延）のUI切り替え
+    private void UpdateStatePanels(ExperimentState state)
+    {
+        bool showStartMenu = state == ExperimentState.StartMenu;
+        bool showTestMenu = state == ExperimentState.TestMenu;
+        bool showExperimentMenu = state == ExperimentState.ExperimentMenu;
+
+        if (showStartMenu && startMenuPanel == null && idlePanel != null && !hasLoggedMissingStartMenu)
+        {
+            Debug.LogWarning("[ExperimentManager] Start menu panel is not assigned. Falling back to idlePanel.");
+            hasLoggedMissingStartMenu = true;
+        }
+
+        SetPanelActive(startMenuPanel, showStartMenu);
+        SetPanelActive(testMenuPanel, showTestMenu);
+        SetPanelActive(experimentMenuPanel, showExperimentMenu);
+
+        if (showStartMenu && startMenuPanel == null)
+        {
+            SetPanelActive(idlePanel, true);
+        }
+        else
+        {
+            SetPanelActive(idlePanel, state == ExperimentState.Idle);
+        }
+        SetPanelActive(consentPanel, state == ExperimentState.Consent);
+        SetPanelActive(practicePanel, state == ExperimentState.Practice);
+        SetPanelActive(taskAPanel, IsTaskAState(state));
+        SetPanelActive(taskBPanel, IsTaskBState(state));
+        SetPanelActive(blockRestPanel, state == ExperimentState.BlockRest);
+        SetPanelActive(finishedPanel, state == ExperimentState.Finished);
+    }
+
+    private void SetPanelActive(GameObject panel, bool isActive)
+    {
+        if (panel != null)
+        {
+            panel.SetActive(isActive);
+        }
+    }
+
+    private void AbortActiveTasks()
+    {
+        if (vhiInductionController != null)
+        {
+            vhiInductionController.AbortInduction();
+        }
+
+        if (taskAController != null)
+        {
+            taskAController.AbortTask();
+        }
+
+        if (taskBController != null)
+        {
+            taskBController.AbortTask();
+        }
+    }
+
+    private void SwitchState(ExperimentState targetState, bool testMode)
+    {
+        bool modeChanged = isTestMode != testMode;
+        isTestMode = testMode;
+
+        if (modeChanged)
+        {
+            RefreshMarkerSender();
+        }
+
+        AbortActiveTasks();
+        ChangeState(targetState);
+    }
+
+    private static bool IsTaskAState(ExperimentState state)
+    {
+        return state == ExperimentState.TaskA_Induction
+            || state == ExperimentState.TaskA_VASCheck
+            || state == ExperimentState.TaskA_Baseline
+            || state == ExperimentState.TaskA_Main;
+    }
+
+    private static bool IsTaskBState(ExperimentState state)
+    {
+        return state == ExperimentState.TaskB_Induction
+            || state == ExperimentState.TaskB_VASCheck
+            || state == ExperimentState.TaskB_Baseline
+            || state == ExperimentState.TaskB_Main;
+    }
+
     private void RefreshMarkerSender()
     {
         MonoBehaviour senderBehaviour = isTestMode ? debugMarkerSender : lslMarkerSender;
+
+        if (senderBehaviour == null)
+        {
+            senderBehaviour = markerSenderBehaviour;
+        }
+
         markerSender = senderBehaviour as IMarkerSender;
 
         if (senderBehaviour == null)

@@ -3,33 +3,47 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using UnityEngine.Serialization;
+using UnityVirtual.LSL;
 
 public class TaskBController : MonoBehaviour
 {
     [Header("Dependencies")]
     [SerializeField] private HandVisualizer handVisualizer;
-    [SerializeField] private LSLMarkerSender markerSender;
+    [FormerlySerializedAs("markerSender")]
+    [SerializeField] private MonoBehaviour markerSenderBehaviour;
 
     [Header("Trial Settings")]
     public int questTrialsCount = 35;
     private int totalTrials = 55; // QUEST 35回 + 固定 20回
-    
+
     // SoA回答受付用
-    private int currentSoAResponse = -1;
-    
+    private const int InvalidSoAResponse = -1;
+    private int currentSoAResponse = InvalidSoAResponse;
+
     // UI表示制御用のイベント（VASInputUI.cs等から購読する）
     public event Action OnSoAWindowOpened;
     public event Action OnSoAWindowClosed;
 
     private string logFilePath;
-    
+    private IMarkerSender markerSender;
+
     // QUEST法用の確率密度関数（0〜1000msの各遅延閾値に対する確率）
     private float[] questPdf;
     private const int MaxDelayMs = 1000;
-    
+
     private List<float> fixedTrialsDelay;
     private Coroutine taskBMainCoroutine;
     private Action movementDetectedHandler;
+
+    private void Awake()
+    {
+        markerSender = markerSenderBehaviour as IMarkerSender;
+        if (markerSender == null)
+        {
+            Debug.LogWarning("[TaskBController] Marker sender is not assigned or does not implement IMarkerSender.");
+        }
+    }
 
     private void Start()
     {
@@ -99,7 +113,7 @@ public class TaskBController : MonoBehaviour
             float trialStartTime = Time.realtimeSinceStartup;
 
             // 3. 試行開始マーカー送出
-            markerSender.SendMarker($"TrialStart_B_{trial}_Delta{currentDeltaMs}ms");
+            SendMarker($"TrialStart_B_{trial}_Delta{currentDeltaMs}ms");
 
             // 4. 運動開始（Onset）の待機
             bool motionDetected = false;
@@ -118,14 +132,14 @@ public class TaskBController : MonoBehaviour
             float motionOnsetTime = Time.realtimeSinceStartup;
 
             // 6. バーチャルハンドが動いた瞬間にマーカー送出
-            markerSender.SendMarker($"MotionOnset_B_Delta{currentDeltaMs}ms");
+            SendMarker($"MotionOnset_B_Delta{currentDeltaMs}ms");
 
             // 7. 実験者または被験者からのSoA有無（1/0）を記録（最大3秒待機）
-            currentSoAResponse = -1;
+            currentSoAResponse = InvalidSoAResponse;
             OnSoAWindowOpened?.Invoke(); // UIを表示
 
             float responseTimer = 0f;
-            while (currentSoAResponse == -1 && responseTimer < 3.0f)
+            while (currentSoAResponse == InvalidSoAResponse && responseTimer < 3.0f)
             {
                 responseTimer += Time.deltaTime;
                 yield return null;
@@ -136,10 +150,10 @@ public class TaskBController : MonoBehaviour
             float trialEndTime = Time.realtimeSinceStartup;
 
             // 8. 応答処理とQUEST更新
-            if (currentSoAResponse != -1)
+            if (currentSoAResponse != InvalidSoAResponse)
             {
-                markerSender.SendMarker($"SoAResponse_{currentSoAResponse}");
-                
+                SendMarker($"SoAResponse_{currentSoAResponse}");
+
                 // QUESTフェーズ中であれば事後分布を更新
                 if (trial <= questTrialsCount)
                 {
@@ -149,12 +163,12 @@ public class TaskBController : MonoBehaviour
             else
             {
                 // 3秒以内に回答がなかった場合
-                markerSender.SendMarker("SoAResponse_Missed");
+                SendMarker("SoAResponse_Missed");
                 Debug.LogWarning($"[Task B] Trial {trial}: No response within 3s window.");
             }
 
             // 9. 試行終了マーカーとロギング
-            markerSender.SendMarker($"TrialEnd_B_{trial}");
+            SendMarker($"TrialEnd_B_{trial}");
             LogTrialData(trial, currentDeltaMs, currentSoAResponse, trialStartTime, motionOnsetTime, trialEndTime, currentQuestEstimate);
         }
 
@@ -169,10 +183,35 @@ public class TaskBController : MonoBehaviour
         currentSoAResponse = response;
     }
 
+    public void AbortTask()
+    {
+        if (taskBMainCoroutine != null)
+        {
+            StopCoroutine(taskBMainCoroutine);
+            taskBMainCoroutine = null;
+        }
+
+        currentSoAResponse = InvalidSoAResponse;
+        UnsubscribeMovementDetection();
+        OnSoAWindowClosed?.Invoke();
+
+        if (handVisualizer != null)
+        {
+            handVisualizer.delayMs = 0f;
+            handVisualizer.ResetMotionDetection();
+        }
+    }
+
     private void LogTrialData(int trialNo, float deltaMs, int response, float startTime, float onsetTime, float endTime, float questEst)
     {
         string logLine = $"{trialNo},{deltaMs},{response},{startTime:F3},{onsetTime:F3},{endTime:F3},{questEst:F2}\n";
         File.AppendAllText(logFilePath, logLine);
+    }
+
+    private void SendMarker(string marker)
+    {
+        if (markerSender == null) return;
+        markerSender.SendMarker(marker);
     }
 
     // ==========================================================
@@ -191,7 +230,7 @@ public class TaskBController : MonoBehaviour
             questPdf[i] = Mathf.Exp(-Mathf.Pow(i - tGuess, 2) / (2f * tGuessSd * tGuessSd));
             sum += questPdf[i];
         }
-        
+
         // 正規化
         for (int i = 0; i <= MaxDelayMs; i++) questPdf[i] /= sum;
     }
@@ -216,12 +255,12 @@ public class TaskBController : MonoBehaviour
             // 遅延検出におけるロジスティック関数型の心理測定関数
             // appliedDelay < T のとき pSoA は 1-delta に近づき、appliedDelay > T のとき gamma に近づく
             float pSoA = gamma + (1f - gamma - delta) / (1f + Mathf.Exp(beta * (appliedDelay - T)));
-            
+
             if (response == 1) // SoAあり（遅延を検出できなかった）
                 questPdf[T] *= pSoA;
             else               // SoAなし（遅延を検出した）
                 questPdf[T] *= (1f - pSoA);
-                
+
             sum += questPdf[T];
         }
 
@@ -239,7 +278,7 @@ public class TaskBController : MonoBehaviour
     {
         fixedTrialsDelay = new List<float>();
         float[] conditions = { 0f, 150f, 300f, 500f };
-        
+
         // 各5回ずつ追加
         for (int i = 0; i < 5; i++)
             fixedTrialsDelay.AddRange(conditions);
@@ -252,18 +291,6 @@ public class TaskBController : MonoBehaviour
             fixedTrialsDelay[i] = fixedTrialsDelay[randIndex];
             fixedTrialsDelay[randIndex] = temp;
         }
-    }
-
-    public void AbortTask()
-    {
-        if (taskBMainCoroutine != null)
-        {
-            StopCoroutine(taskBMainCoroutine);
-            taskBMainCoroutine = null;
-        }
-
-        UnsubscribeMovementDetection();
-        OnSoAWindowClosed?.Invoke();
     }
 
     private void UnsubscribeMovementDetection()

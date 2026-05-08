@@ -2,12 +2,15 @@ using UnityEngine;
 using System.Collections;
 using System.IO;
 using System;
+using UnityEngine.Serialization;
+using UnityVirtual.LSL;
 
 public class TaskAController : MonoBehaviour
 {
     [Header("Dependencies")]
     [SerializeField] private HandVisualizer handVisualizer;
-    [SerializeField] private LSLMarkerSender markerSender;
+    [FormerlySerializedAs("markerSender")]
+    [SerializeField] private MonoBehaviour markerSenderBehaviour;
 
     [Header("Settings")]
     public int trialsPerBlock = 20;
@@ -15,15 +18,35 @@ public class TaskAController : MonoBehaviour
     // 現在のブロック状態（0: sync, 1: async）
     private int currentBlockIndex = 0;
     public string CurrentCondition => currentBlockIndex == 0 ? "sync" : "async";
+    public bool HasRemainingBlocks => completedBlocks < TotalBlocks;
 
     private string logFilePath;
     private bool isExcludedBlock = false;
     private Coroutine taskAMainCoroutine;
 
+    // sync/async の2ブロック固定（変更する場合は条件分岐も更新）
+    private const int TotalBlocks = 2;
+    private int completedBlocks = 0;
+    private bool blockCompletionRecorded = false;
+    private IMarkerSender markerSender;
+
+    private void Awake()
+    {
+        markerSender = markerSenderBehaviour as IMarkerSender;
+        if (markerSender == null)
+        {
+            Debug.LogWarning("[TaskAController] Marker sender is not assigned or does not implement IMarkerSender.");
+        }
+    }
+
     private void Start()
     {
         ExperimentManager.Instance.OnStateChanged += HandleStateChanged;
         InitializeLogFile();
+        if (handVisualizer != null)
+        {
+            handVisualizer.OnMarkerRequested += HandleMarkerRequested;
+        }
     }
 
     private void OnDestroy()
@@ -34,6 +57,10 @@ public class TaskAController : MonoBehaviour
         {
             ExperimentManager.Instance.OnStateChanged -= HandleStateChanged;
         }
+        if (handVisualizer != null)
+        {
+            handVisualizer.OnMarkerRequested -= HandleMarkerRequested;
+        }
     }
 
     private void InitializeLogFile()
@@ -43,7 +70,7 @@ public class TaskAController : MonoBehaviour
         if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
 
         logFilePath = Path.Combine(directory, "TaskA_log.csv");
-        
+
         // ヘッダーの書き込み
         if (!File.Exists(logFilePath))
         {
@@ -53,23 +80,18 @@ public class TaskAController : MonoBehaviour
 
     private void HandleStateChanged(ExperimentState state)
     {
-        if (state == ExperimentState.TaskA_Main)
+        if (state == ExperimentState.TaskA_Induction)
+        {
+            blockCompletionRecorded = false;
+        }
+        else if (state == ExperimentState.TaskA_Main)
         {
             isExcludedBlock = false; // VAS判定による除外フラグがあればここで受け取る設計も可能
+            blockCompletionRecorded = false;
             AbortTask();
             taskAMainCoroutine = StartCoroutine(TaskAMainRoutine());
         }
-        else if (state == ExperimentState.BlockRest)
-        {
-            // 休憩ステートに入ったら、次のブロック（async）に向けてインデックスを進める
-            if (currentBlockIndex == 0)
-            {
-                currentBlockIndex++;
-            }
-
-            AbortTask();
-        }
-        else
+        else if (state != ExperimentState.TaskA_VASCheck && state != ExperimentState.TaskA_Baseline)
         {
             AbortTask();
         }
@@ -89,7 +111,7 @@ public class TaskAController : MonoBehaviour
 
             // 2. 試行開始マーカー送出
             string markerPrefix = $"TrialStart_A_{CurrentCondition}_{trial}";
-            markerSender.SendMarker(markerPrefix);
+            SendMarker(markerPrefix);
 
             // 3. 自動動作の選択とトリガー
             AutoMotionType motionType = (AutoMotionType)UnityEngine.Random.Range(0, 4);
@@ -103,14 +125,15 @@ public class TaskAController : MonoBehaviour
             float trialEndTime = Time.realtimeSinceStartup;
 
             // 5. 試行終了マーカー送出
-            markerSender.SendMarker($"TrialEnd_A_{CurrentCondition}_{trial}");
+            SendMarker($"TrialEnd_A_{CurrentCondition}_{trial}");
 
             // 6. CSVへのデータ記録
             LogTrialData(trial, CurrentCondition, motionType.ToString(), trialStartTime, motionOnsetTime, trialEndTime, isExcludedBlock);
         }
 
         Debug.Log($"[Task A] Block {CurrentCondition} Completed. Transitioning to Rest.");
-        
+        CompleteCurrentBlock();
+
         // 20試行終わったらブロック間休憩へ
         ExperimentManager.Instance.ChangeState(ExperimentState.BlockRest);
         taskAMainCoroutine = null;
@@ -120,6 +143,12 @@ public class TaskAController : MonoBehaviour
     {
         string logLine = $"{trialNo},{condition},{motionType},{startTime:F3},{onsetTime:F3},{endTime:F3},{(excluded ? 1 : 0)}\n";
         File.AppendAllText(logFilePath, logLine);
+    }
+
+    public void MarkCurrentBlockExcluded()
+    {
+        isExcludedBlock = true;
+        CompleteCurrentBlock();
     }
 
     public void AbortTask()
@@ -133,6 +162,34 @@ public class TaskAController : MonoBehaviour
         if (handVisualizer != null)
         {
             handVisualizer.StopAutoMotion();
+            handVisualizer.SetAsyncOffset(false);
         }
+    }
+
+    private void CompleteCurrentBlock()
+    {
+        if (blockCompletionRecorded) return;
+        if (completedBlocks >= TotalBlocks) return;
+
+        blockCompletionRecorded = true;
+        int nextCompletedBlocks = completedBlocks + 1;
+        if (nextCompletedBlocks > TotalBlocks) return;
+
+        completedBlocks = nextCompletedBlocks;
+        if (completedBlocks < TotalBlocks)
+        {
+            currentBlockIndex = completedBlocks;
+        }
+    }
+
+    private void HandleMarkerRequested(string marker)
+    {
+        SendMarker(marker);
+    }
+
+    private void SendMarker(string marker)
+    {
+        if (markerSender == null) return;
+        markerSender.SendMarker(marker);
     }
 }

@@ -92,8 +92,8 @@ public class ExperimentUI : MonoBehaviour
     // --- ボタンアクション ---
     private void OnNextPhaseClicked()
     {
-        // ※ 本来はExperimentManagerの現在のステートを評価して適切なNextStateへ遷移させるロジックを記述します
-        AddLog("Next Phase forced by Experimenter.");
+        ExperimentManager.Instance.AdvanceState();
+        AddLog("Next Phase requested by Experimenter.");
     }
 
     private void OnExcludeBlockClicked()

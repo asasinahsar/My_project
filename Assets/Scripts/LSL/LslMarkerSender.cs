@@ -1,7 +1,7 @@
 using UnityEngine;
-using LSL; // LSL4Unityの標準ネームスペース
+using LSL; // LSL4Unityの標準ライブラリを参照
 
-namespace LSL
+namespace UnityVirtual.LSL
 {
     public class LslMarkerSender : MonoBehaviour, IMarkerSender
     {
@@ -15,8 +15,8 @@ namespace LSL
 
         void Start()
         {
-            // LSLストリームのアウトレット（送信口）を作成
-            StreamInfo streamInfo = new StreamInfo(streamName, streamType, 1, LSL.LSL.IRREGULAR_RATE, channel_format_t.cf_string, streamId);
+            // global::LSL.LSL.IRREGULAR_RATE でライブラリ側の定数を明示的に参照します
+            StreamInfo streamInfo = new StreamInfo(streamName, streamType, 1, global::LSL.LSL.IRREGULAR_RATE, channel_format_t.cf_string, streamId);
             outlet = new StreamOutlet(streamInfo);
             Debug.Log($"[LslMarkerSender] LSL Stream Outlet created: {streamName}");
         }
