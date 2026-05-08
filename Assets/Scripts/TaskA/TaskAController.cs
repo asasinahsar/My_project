@@ -142,6 +142,16 @@ public class TaskAController : MonoBehaviour
         CompleteCurrentBlock();
     }
 
+    public void AbortTask()
+    {
+        StopAllCoroutines();
+        if (handVisualizer != null)
+        {
+            handVisualizer.StopAutoMotion();
+            handVisualizer.SetAsyncOffset(false);
+        }
+    }
+
     private void CompleteCurrentBlock()
     {
         if (blockCompletionRecorded) return;

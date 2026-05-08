@@ -39,6 +39,14 @@ namespace LSL
             }
         }
 
+        public void SetTestMode(bool testMode)
+        {
+            if (isTestMode == testMode) return;
+
+            isTestMode = testMode;
+            SelectActiveSender();
+        }
+
         private static void ToggleSenderComponent(MonoBehaviour sender, bool shouldEnable)
         {
             if (sender != null)

@@ -35,6 +35,8 @@ public class HandVisualizer : MonoBehaviour
     private bool hasDetectedMotionThisTrial = false;
     private Vector3 previousPosition;
     private Coroutine autoMotionCoroutine;
+    private Quaternion autoMotionBaseRotation;
+    private bool hasAutoMotionBaseRotation = false;
 
     // バッファに保存する姿勢データのクラス
     public class HandPose
@@ -133,8 +135,25 @@ public class HandVisualizer : MonoBehaviour
     // プロシージャルアニメーションの開始
     public void StartAutoMotion(AutoMotionType motionType)
     {
-        if (autoMotionCoroutine != null) StopCoroutine(autoMotionCoroutine);
+        StopAutoMotion();
+
+        if (virtualHandWrist != null)
+        {
+            autoMotionBaseRotation = virtualHandWrist.localRotation;
+            hasAutoMotionBaseRotation = true;
+        }
+
         autoMotionCoroutine = StartCoroutine(AutoMotionRoutine(motionType));
+    }
+
+    public void StopAutoMotion()
+    {
+        if (autoMotionCoroutine != null)
+        {
+            StopCoroutine(autoMotionCoroutine);
+        }
+
+        ResetAutoMotionState();
     }
 
     private IEnumerator AutoMotionRoutine(AutoMotionType motionType)
@@ -144,7 +163,7 @@ public class HandVisualizer : MonoBehaviour
 
         float duration = 2.0f; // 2秒かけて往復
         float elapsed = 0f;
-        Quaternion baseRot = virtualHandWrist.localRotation;
+        Quaternion baseRot = GetAutoMotionBaseRotation();
 
         while (elapsed < duration)
         {
@@ -178,12 +197,42 @@ public class HandVisualizer : MonoBehaviour
             }
 
             // 回転を適用（実際のリグの軸設定に合わせて Vector3.right 等は要調整）
-            virtualHandWrist.localRotation = baseRot * Quaternion.AngleAxis(angle, axis);
+            if (virtualHandWrist != null)
+            {
+                virtualHandWrist.localRotation = baseRot * Quaternion.AngleAxis(angle, axis);
+            }
 
             yield return null;
         }
 
-        virtualHandWrist.localRotation = baseRot;
+        if (virtualHandWrist != null)
+        {
+            virtualHandWrist.localRotation = baseRot;
+        }
+
+        ResetAutoMotionState();
+    }
+
+    private Quaternion GetAutoMotionBaseRotation()
+    {
+        if (hasAutoMotionBaseRotation)
+        {
+            return autoMotionBaseRotation;
+        }
+
+        return virtualHandWrist != null ? virtualHandWrist.localRotation : Quaternion.identity;
+    }
+
+    private void ResetAutoMotionState()
+    {
+        if (hasAutoMotionBaseRotation && virtualHandWrist != null)
+        {
+            virtualHandWrist.localRotation = autoMotionBaseRotation;
+        }
+
+        hasAutoMotionBaseRotation = false;
+        autoMotionCoroutine = null;
+        isAutoMode = false;
     }
 
     // 試行ごとのオンセット検知フラグのリセット

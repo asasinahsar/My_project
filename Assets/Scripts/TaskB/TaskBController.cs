@@ -19,7 +19,8 @@ public class TaskBController : MonoBehaviour
     private int totalTrials = 55; // QUEST 35回 + 固定 20回
     
     // SoA回答受付用
-    private int currentSoAResponse = -1;
+    private const int InvalidSoAResponse = -1;
+    private int currentSoAResponse = InvalidSoAResponse;
     
     // UI表示制御用のイベント（VASInputUI.cs等から購読する）
     public event Action OnSoAWindowOpened;
@@ -27,6 +28,7 @@ public class TaskBController : MonoBehaviour
 
     private string logFilePath;
     private IMarkerSender markerSender;
+    private Action movementDetectedHandler;
     
     // QUEST法用の確率密度関数（0〜1000msの各遅延閾値に対する確率）
     private float[] questPdf;
@@ -53,6 +55,8 @@ public class TaskBController : MonoBehaviour
     {
         if (ExperimentManager.Instance != null)
             ExperimentManager.Instance.OnStateChanged -= HandleStateChanged;
+
+        UnsubscribeMovementDetectedHandler();
     }
 
     private void InitializeLogFile()
@@ -108,13 +112,14 @@ public class TaskBController : MonoBehaviour
 
             // 4. 運動開始（Onset）の待機
             bool motionDetected = false;
-            Action onDetect = () => motionDetected = true;
-            handVisualizer.OnMovementDetected += onDetect;
+            UnsubscribeMovementDetectedHandler();
+            movementDetectedHandler = () => motionDetected = true;
+            handVisualizer.OnMovementDetected += movementDetectedHandler;
             handVisualizer.ResetMotionDetection();
 
             // 実際の運動が検知されるまで待機（タイムスタンプはマーカー側で記録）
             while (!motionDetected) yield return null;
-            handVisualizer.OnMovementDetected -= onDetect;
+            UnsubscribeMovementDetectedHandler();
 
             // 5. 仮想手が動くまでの遅延（Δt）を待機
             if (currentDeltaMs > 0)
@@ -126,11 +131,11 @@ public class TaskBController : MonoBehaviour
             SendMarker($"MotionOnset_B_Delta{currentDeltaMs}ms");
 
             // 7. 実験者または被験者からのSoA有無（1/0）を記録（最大3秒待機）
-            currentSoAResponse = -1;
+            currentSoAResponse = InvalidSoAResponse;
             OnSoAWindowOpened?.Invoke(); // UIを表示
 
             float responseTimer = 0f;
-            while (currentSoAResponse == -1 && responseTimer < 3.0f)
+            while (currentSoAResponse == InvalidSoAResponse && responseTimer < 3.0f)
             {
                 responseTimer += Time.deltaTime;
                 yield return null;
@@ -141,7 +146,7 @@ public class TaskBController : MonoBehaviour
             float trialEndTime = Time.realtimeSinceStartup;
 
             // 8. 応答処理とQUEST更新
-            if (currentSoAResponse != -1)
+            if (currentSoAResponse != InvalidSoAResponse)
             {
                 SendMarker($"SoAResponse_{currentSoAResponse}");
                 
@@ -171,6 +176,27 @@ public class TaskBController : MonoBehaviour
     public void SubmitSoAResponse(int response)
     {
         currentSoAResponse = response;
+    }
+
+    public void AbortTask()
+    {
+        StopAllCoroutines();
+        UnsubscribeMovementDetectedHandler();
+        currentSoAResponse = InvalidSoAResponse;
+        OnSoAWindowClosed?.Invoke();
+        if (handVisualizer != null)
+        {
+            handVisualizer.delayMs = 0f;
+            handVisualizer.ResetMotionDetection();
+        }
+    }
+
+    private void UnsubscribeMovementDetectedHandler()
+    {
+        if (handVisualizer == null || movementDetectedHandler == null) return;
+
+        handVisualizer.OnMovementDetected -= movementDetectedHandler;
+        movementDetectedHandler = null;
     }
 
     private void LogTrialData(int trialNo, float deltaMs, int response, float startTime, float onsetTime, float endTime, float questEst)
