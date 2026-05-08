@@ -115,44 +115,32 @@ public class ExperimentManager : MonoBehaviour
 
     public void ShowStartMenu()
     {
-        isTestMode = false;
-        AbortActiveTasks();
-        ChangeState(ExperimentState.StartMenu);
+        SwitchState(ExperimentState.StartMenu, false);
     }
 
     public void ShowTestMenu()
     {
-        isTestMode = true;
-        AbortActiveTasks();
-        ChangeState(ExperimentState.TestMenu);
+        SwitchState(ExperimentState.TestMenu, true);
     }
 
     public void ShowExperimentMenu()
     {
-        isTestMode = false;
-        AbortActiveTasks();
-        ChangeState(ExperimentState.ExperimentMenu);
+        SwitchState(ExperimentState.ExperimentMenu, false);
     }
 
     public void StartTestTaskA()
     {
-        isTestMode = true;
-        AbortActiveTasks();
-        ChangeState(ExperimentState.TaskA_Induction);
+        SwitchState(ExperimentState.TaskA_Induction, true);
     }
 
     public void StartTestTaskB()
     {
-        isTestMode = true;
-        AbortActiveTasks();
-        ChangeState(ExperimentState.TaskB_Induction);
+        SwitchState(ExperimentState.TaskB_Induction, true);
     }
 
     public void StartExperiment()
     {
-        isTestMode = false;
-        AbortActiveTasks();
-        ChangeState(ExperimentState.Consent);
+        SwitchState(ExperimentState.Consent, false);
     }
 
     /// <summary>
@@ -284,8 +272,14 @@ public class ExperimentManager : MonoBehaviour
         SetPanelActive(testMenuPanel, showTestMenu);
         SetPanelActive(experimentMenuPanel, showExperimentMenu);
 
-        bool showIdlePanel = state == ExperimentState.Idle || (showStartMenu && startMenuPanel == null);
-        SetPanelActive(idlePanel, showIdlePanel);
+        if (showStartMenu && startMenuPanel == null)
+        {
+            SetPanelActive(idlePanel, true);
+        }
+        else
+        {
+            SetPanelActive(idlePanel, state == ExperimentState.Idle);
+        }
         SetPanelActive(consentPanel, state == ExperimentState.Consent);
         SetPanelActive(practicePanel, state == ExperimentState.Practice);
         SetPanelActive(taskAPanel, IsTaskAState(state));
@@ -318,6 +312,13 @@ public class ExperimentManager : MonoBehaviour
         {
             taskBController.AbortTask();
         }
+    }
+
+    private void SwitchState(ExperimentState targetState, bool testMode)
+    {
+        isTestMode = testMode;
+        AbortActiveTasks();
+        ChangeState(targetState);
     }
 
     private static bool IsTaskAState(ExperimentState state)
