@@ -171,9 +171,13 @@ public class ExperimentManager : MonoBehaviour
         MonoBehaviour senderBehaviour = isTestMode ? debugMarkerSender : lslMarkerSender;
         markerSender = senderBehaviour as IMarkerSender;
 
-        if (markerSender == null)
+        if (senderBehaviour == null)
         {
-            Debug.LogWarning($"[ExperimentManager] {(isTestMode ? "DebugMarkerSender" : "LslMarkerSender")} is not assigned or does not implement IMarkerSender.");
+            Debug.LogWarning($"[ExperimentManager] {(isTestMode ? "DebugMarkerSender" : "LslMarkerSender")} is not assigned.");
+        }
+        else if (markerSender == null)
+        {
+            Debug.LogWarning($"[ExperimentManager] Assigned {(isTestMode ? "DebugMarkerSender" : "LslMarkerSender")} does not implement IMarkerSender.");
         }
     }
 

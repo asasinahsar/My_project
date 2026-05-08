@@ -145,6 +145,8 @@ public class HandVisualizer : MonoBehaviour
 
     public void StopAutoMotion()
     {
+        bool wasAutoMotionRunning = autoMotionCoroutine != null || isAutoMode;
+
         if (autoMotionCoroutine != null)
         {
             StopCoroutine(autoMotionCoroutine);
@@ -153,7 +155,7 @@ public class HandVisualizer : MonoBehaviour
 
         isAutoMode = false;
 
-        if (virtualHandWrist != null)
+        if (wasAutoMotionRunning && virtualHandWrist != null)
         {
             virtualHandWrist.localRotation = lastAutoMotionBaseRotation;
         }

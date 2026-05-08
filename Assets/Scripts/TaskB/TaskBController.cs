@@ -63,10 +63,8 @@ public class TaskBController : MonoBehaviour
         {
             InitializeQuest();
             GenerateFixedTrials();
-            if (taskBMainCoroutine == null)
-            {
-                taskBMainCoroutine = StartCoroutine(TaskBMainRoutine());
-            }
+            AbortTask();
+            taskBMainCoroutine = StartCoroutine(TaskBMainRoutine());
         }
         else
         {

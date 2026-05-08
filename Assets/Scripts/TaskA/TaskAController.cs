@@ -56,10 +56,8 @@ public class TaskAController : MonoBehaviour
         if (state == ExperimentState.TaskA_Main)
         {
             isExcludedBlock = false; // VAS判定による除外フラグがあればここで受け取る設計も可能
-            if (taskAMainCoroutine == null)
-            {
-                taskAMainCoroutine = StartCoroutine(TaskAMainRoutine());
-            }
+            AbortTask();
+            taskAMainCoroutine = StartCoroutine(TaskAMainRoutine());
         }
         else if (state == ExperimentState.BlockRest)
         {
