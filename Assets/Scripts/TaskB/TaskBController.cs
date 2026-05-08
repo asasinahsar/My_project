@@ -28,6 +28,7 @@ public class TaskBController : MonoBehaviour
 
     private string logFilePath;
     private IMarkerSender markerSender;
+    private Action movementDetectedHandler;
     
     // QUEST法用の確率密度関数（0〜1000msの各遅延閾値に対する確率）
     private float[] questPdf;
@@ -54,6 +55,8 @@ public class TaskBController : MonoBehaviour
     {
         if (ExperimentManager.Instance != null)
             ExperimentManager.Instance.OnStateChanged -= HandleStateChanged;
+
+        UnsubscribeMovementDetectedHandler();
     }
 
     private void InitializeLogFile()
@@ -109,13 +112,14 @@ public class TaskBController : MonoBehaviour
 
             // 4. 運動開始（Onset）の待機
             bool motionDetected = false;
-            Action onDetect = () => motionDetected = true;
-            handVisualizer.OnMovementDetected += onDetect;
+            UnsubscribeMovementDetectedHandler();
+            movementDetectedHandler = () => motionDetected = true;
+            handVisualizer.OnMovementDetected += movementDetectedHandler;
             handVisualizer.ResetMotionDetection();
 
             // 実際の運動が検知されるまで待機（タイムスタンプはマーカー側で記録）
             while (!motionDetected) yield return null;
-            handVisualizer.OnMovementDetected -= onDetect;
+            UnsubscribeMovementDetectedHandler();
 
             // 5. 仮想手が動くまでの遅延（Δt）を待機
             if (currentDeltaMs > 0)
@@ -177,6 +181,7 @@ public class TaskBController : MonoBehaviour
     public void AbortTask()
     {
         StopAllCoroutines();
+        UnsubscribeMovementDetectedHandler();
         currentSoAResponse = InvalidSoAResponse;
         OnSoAWindowClosed?.Invoke();
         if (handVisualizer != null)
@@ -184,6 +189,14 @@ public class TaskBController : MonoBehaviour
             handVisualizer.delayMs = 0f;
             handVisualizer.ResetMotionDetection();
         }
+    }
+
+    private void UnsubscribeMovementDetectedHandler()
+    {
+        if (handVisualizer == null || movementDetectedHandler == null) return;
+
+        handVisualizer.OnMovementDetected -= movementDetectedHandler;
+        movementDetectedHandler = null;
     }
 
     private void LogTrialData(int trialNo, float deltaMs, int response, float startTime, float onsetTime, float endTime, float questEst)

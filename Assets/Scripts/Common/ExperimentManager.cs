@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using LSL;
 using UnityVirtual.LSL;
 using UnityEngine.Serialization;
 
@@ -49,6 +50,7 @@ public class ExperimentManager : MonoBehaviour
     [SerializeField] private GameObject finishedPanel;
 
     private IMarkerSender markerSender;
+    private MarkerSenderRouter markerSenderRouter;
     private bool isTestMode = false;
     private bool hasLoggedMissingStartMenu = false;
 
@@ -67,10 +69,13 @@ public class ExperimentManager : MonoBehaviour
         else Destroy(gameObject);
 
         markerSender = markerSenderBehaviour as IMarkerSender;
+        markerSenderRouter = markerSenderBehaviour as MarkerSenderRouter;
         if (markerSender == null)
         {
             Debug.LogWarning("[ExperimentManager] Marker sender is not assigned or does not implement IMarkerSender.");
         }
+
+        ApplyMarkerSenderMode();
     }
 
     private void Start()
@@ -316,9 +321,25 @@ public class ExperimentManager : MonoBehaviour
 
     private void SwitchState(ExperimentState targetState, bool testMode)
     {
-        isTestMode = testMode;
+        UpdateTestMode(testMode);
+
         AbortActiveTasks();
         ChangeState(targetState);
+    }
+
+    private void UpdateTestMode(bool testMode)
+    {
+        if (isTestMode == testMode) return;
+        isTestMode = testMode;
+        ApplyMarkerSenderMode();
+    }
+
+    private void ApplyMarkerSenderMode()
+    {
+        if (markerSenderRouter != null)
+        {
+            markerSenderRouter.SetTestMode(isTestMode);
+        }
     }
 
     private static bool IsTaskAState(ExperimentState state)
