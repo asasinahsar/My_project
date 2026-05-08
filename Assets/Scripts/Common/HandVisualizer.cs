@@ -35,6 +35,7 @@ public class HandVisualizer : MonoBehaviour
     private bool hasDetectedMotionThisTrial = false;
     private Vector3 previousPosition;
     private Coroutine autoMotionCoroutine;
+    private Quaternion lastAutoMotionBaseRotation;
 
     // バッファに保存する姿勢データのクラス
     public class HandPose
@@ -61,6 +62,11 @@ public class HandVisualizer : MonoBehaviour
     {
         if (actualHandWrist != null)
             previousPosition = actualHandWrist.position;
+
+        if (virtualHandWrist != null)
+            lastAutoMotionBaseRotation = virtualHandWrist.localRotation;
+        else
+            lastAutoMotionBaseRotation = Quaternion.identity;
     }
 
     private void Update()
@@ -133,8 +139,24 @@ public class HandVisualizer : MonoBehaviour
     // プロシージャルアニメーションの開始
     public void StartAutoMotion(AutoMotionType motionType)
     {
-        if (autoMotionCoroutine != null) StopCoroutine(autoMotionCoroutine);
+        StopAutoMotion();
         autoMotionCoroutine = StartCoroutine(AutoMotionRoutine(motionType));
+    }
+
+    public void StopAutoMotion()
+    {
+        if (autoMotionCoroutine != null)
+        {
+            StopCoroutine(autoMotionCoroutine);
+            autoMotionCoroutine = null;
+        }
+
+        isAutoMode = false;
+
+        if (virtualHandWrist != null)
+        {
+            virtualHandWrist.localRotation = lastAutoMotionBaseRotation;
+        }
     }
 
     private IEnumerator AutoMotionRoutine(AutoMotionType motionType)
@@ -145,6 +167,7 @@ public class HandVisualizer : MonoBehaviour
         float duration = 2.0f; // 2秒かけて往復
         float elapsed = 0f;
         Quaternion baseRot = virtualHandWrist.localRotation;
+        lastAutoMotionBaseRotation = baseRot;
 
         while (elapsed < duration)
         {
@@ -184,6 +207,8 @@ public class HandVisualizer : MonoBehaviour
         }
 
         virtualHandWrist.localRotation = baseRot;
+        isAutoMode = false;
+        autoMotionCoroutine = null;
     }
 
     // 試行ごとのオンセット検知フラグのリセット
