@@ -147,7 +147,7 @@ public class TaskAController : MonoBehaviour
         StopAllCoroutines();
         if (handVisualizer != null)
         {
-            handVisualizer.isAutoMode = false;
+            handVisualizer.StopAutoMotion();
             handVisualizer.SetAsyncOffset(false);
         }
     }
