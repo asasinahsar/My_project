@@ -173,6 +173,18 @@ public class TaskBController : MonoBehaviour
         currentSoAResponse = response;
     }
 
+    public void AbortTask()
+    {
+        StopAllCoroutines();
+        currentSoAResponse = -1;
+        OnSoAWindowClosed?.Invoke();
+        if (handVisualizer != null)
+        {
+            handVisualizer.delayMs = 0f;
+            handVisualizer.ResetMotionDetection();
+        }
+    }
+
     private void LogTrialData(int trialNo, float deltaMs, int response, float startTime, float onsetTime, float endTime, float questEst)
     {
         string logLine = $"{trialNo},{deltaMs},{response},{startTime:F3},{onsetTime:F3},{endTime:F3},{questEst:F2}\n";

@@ -17,7 +17,10 @@ public enum ExperimentState
     TaskB_VASCheck,     // Task B VAS確認
     TaskB_Baseline,     // Task B 安静ベースライン（30秒）
     TaskB_Main,         // Task B 計測（55試行）
-    Finished
+    Finished,
+    StartMenu,
+    TestMenu,
+    ExperimentMenu
 }
 
 public class ExperimentManager : MonoBehaviour
@@ -28,6 +31,13 @@ public class ExperimentManager : MonoBehaviour
     [FormerlySerializedAs("markerSender")]
     [SerializeField] private MonoBehaviour markerSenderBehaviour;
     [SerializeField] private TaskAController taskAController;
+    [SerializeField] private TaskBController taskBController;
+    [SerializeField] private VHIInductionController vhiInductionController;
+
+    [Header("UI Panels (Menu)")]
+    [SerializeField] private GameObject startMenuPanel;
+    [SerializeField] private GameObject testMenuPanel;
+    [SerializeField] private GameObject experimentMenuPanel;
 
     [Header("UI Panels (State Based)")]
     [SerializeField] private GameObject idlePanel;
@@ -39,8 +49,10 @@ public class ExperimentManager : MonoBehaviour
     [SerializeField] private GameObject finishedPanel;
 
     private IMarkerSender markerSender;
+    private bool isTestMode = false;
 
-    public ExperimentState CurrentState { get; private set; } = ExperimentState.Idle;
+    public ExperimentState CurrentState { get; private set; } = ExperimentState.StartMenu;
+    public bool IsTestMode => isTestMode;
 
     // ステート変更時に他のコントローラー（TaskA/B ControllerやUI等）へ通知するイベント
     public event Action<ExperimentState> OnStateChanged;
@@ -91,6 +103,48 @@ public class ExperimentManager : MonoBehaviour
         }
 
         OnStateChanged?.Invoke(newState);
+    }
+
+    public void ShowStartMenu()
+    {
+        isTestMode = false;
+        AbortActiveTasks();
+        ChangeState(ExperimentState.StartMenu);
+    }
+
+    public void ShowTestMenu()
+    {
+        isTestMode = true;
+        AbortActiveTasks();
+        ChangeState(ExperimentState.TestMenu);
+    }
+
+    public void ShowExperimentMenu()
+    {
+        isTestMode = false;
+        AbortActiveTasks();
+        ChangeState(ExperimentState.ExperimentMenu);
+    }
+
+    public void StartTestTaskA()
+    {
+        isTestMode = true;
+        AbortActiveTasks();
+        ChangeState(ExperimentState.TaskA_Induction);
+    }
+
+    public void StartTestTaskB()
+    {
+        isTestMode = true;
+        AbortActiveTasks();
+        ChangeState(ExperimentState.TaskB_Induction);
+    }
+
+    public void StartExperiment()
+    {
+        isTestMode = false;
+        AbortActiveTasks();
+        ChangeState(ExperimentState.Consent);
     }
 
     /// <summary>
@@ -208,7 +262,16 @@ public class ExperimentManager : MonoBehaviour
     // Task A（自動バーチャルハンド動作）と Task B（QUEST法 + Δt遅延）のUI切り替え
     private void UpdateStatePanels(ExperimentState state)
     {
-        SetPanelActive(idlePanel, state == ExperimentState.Idle);
+        bool showStartMenu = state == ExperimentState.StartMenu;
+        bool showTestMenu = state == ExperimentState.TestMenu;
+        bool showExperimentMenu = state == ExperimentState.ExperimentMenu;
+
+        SetPanelActive(startMenuPanel, showStartMenu);
+        SetPanelActive(testMenuPanel, showTestMenu);
+        SetPanelActive(experimentMenuPanel, showExperimentMenu);
+
+        bool showIdlePanel = state == ExperimentState.Idle || (showStartMenu && startMenuPanel == null);
+        SetPanelActive(idlePanel, showIdlePanel);
         SetPanelActive(consentPanel, state == ExperimentState.Consent);
         SetPanelActive(practicePanel, state == ExperimentState.Practice);
         SetPanelActive(taskAPanel, IsTaskAState(state));
@@ -222,6 +285,24 @@ public class ExperimentManager : MonoBehaviour
         if (panel != null)
         {
             panel.SetActive(isActive);
+        }
+    }
+
+    private void AbortActiveTasks()
+    {
+        if (vhiInductionController != null)
+        {
+            vhiInductionController.AbortInduction();
+        }
+
+        if (taskAController != null)
+        {
+            taskAController.AbortTask();
+        }
+
+        if (taskBController != null)
+        {
+            taskBController.AbortTask();
         }
     }
 

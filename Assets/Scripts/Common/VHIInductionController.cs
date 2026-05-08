@@ -124,4 +124,15 @@ public class VHIInductionController : MonoBehaviour
         if (markerSender == null) return;
         markerSender.SendMarker(marker);
     }
+
+    public void AbortInduction()
+    {
+        StopAllCoroutines();
+        if (handVisualizer != null)
+        {
+            handVisualizer.SetAsyncOffset(false);
+            handVisualizer.delayMs = 0f;
+            handVisualizer.isAutoMode = false;
+        }
+    }
 }
