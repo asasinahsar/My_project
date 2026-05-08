@@ -16,7 +16,7 @@ namespace UnityVirtual.LSL
         void Start()
         {
             // LSL.LSL.IRREGULAR_RATE が正しくライブラリ側を参照できるようになります
-            StreamInfo streamInfo = new StreamInfo(streamName, streamType, 1, LSL.LSL.IRREGULAR_RATE, channel_format_t.cf_string, streamId);
+            StreamInfo streamInfo = new StreamInfo(streamName, streamType, 1, global::LSL.LSL.IRREGULAR_RATE, channel_format_t.cf_string, streamId);
             outlet = new StreamOutlet(streamInfo);
             Debug.Log($"[LslMarkerSender] LSL Stream Outlet created: {streamName}");
         }
