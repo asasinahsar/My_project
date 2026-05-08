@@ -151,16 +151,9 @@ public class HandVisualizer : MonoBehaviour
         if (autoMotionCoroutine != null)
         {
             StopCoroutine(autoMotionCoroutine);
-            autoMotionCoroutine = null;
         }
 
-        if (hasAutoMotionBaseRotation && virtualHandWrist != null)
-        {
-            virtualHandWrist.localRotation = autoMotionBaseRotation;
-        }
-
-        hasAutoMotionBaseRotation = false;
-        isAutoMode = false;
+        ResetAutoMotionState();
     }
 
     private IEnumerator AutoMotionRoutine(AutoMotionType motionType)
@@ -170,9 +163,7 @@ public class HandVisualizer : MonoBehaviour
 
         float duration = 2.0f; // 2秒かけて往復
         float elapsed = 0f;
-        Quaternion baseRot = hasAutoMotionBaseRotation
-            ? autoMotionBaseRotation
-            : (virtualHandWrist != null ? virtualHandWrist.localRotation : Quaternion.identity);
+        Quaternion baseRot = GetAutoMotionBaseRotation();
 
         while (elapsed < duration)
         {
@@ -217,6 +208,26 @@ public class HandVisualizer : MonoBehaviour
         if (virtualHandWrist != null)
         {
             virtualHandWrist.localRotation = baseRot;
+        }
+
+        ResetAutoMotionState();
+    }
+
+    private Quaternion GetAutoMotionBaseRotation()
+    {
+        if (hasAutoMotionBaseRotation)
+        {
+            return autoMotionBaseRotation;
+        }
+
+        return virtualHandWrist != null ? virtualHandWrist.localRotation : Quaternion.identity;
+    }
+
+    private void ResetAutoMotionState()
+    {
+        if (hasAutoMotionBaseRotation && virtualHandWrist != null)
+        {
+            virtualHandWrist.localRotation = autoMotionBaseRotation;
         }
 
         hasAutoMotionBaseRotation = false;
