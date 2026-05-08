@@ -17,7 +17,10 @@ public enum ExperimentState
     TaskB_VASCheck,     // Task B VAS確認
     TaskB_Baseline,     // Task B 安静ベースライン（30秒）
     TaskB_Main,         // Task B 計測（55試行）
-    Finished
+    Finished,
+    StartMenu,
+    TestMenu,
+    ExperimentMenu
 }
 
 public class ExperimentManager : MonoBehaviour
@@ -28,6 +31,13 @@ public class ExperimentManager : MonoBehaviour
     [FormerlySerializedAs("markerSender")]
     [SerializeField] private MonoBehaviour markerSenderBehaviour;
     [SerializeField] private TaskAController taskAController;
+    [SerializeField] private TaskBController taskBController;
+    [SerializeField] private VHIInductionController vhiInductionController;
+
+    [Header("UI Panels (Menu)")]
+    [SerializeField] private GameObject startMenuPanel;
+    [SerializeField] private GameObject testMenuPanel;
+    [SerializeField] private GameObject experimentMenuPanel;
 
     [Header("UI Panels (State Based)")]
     [SerializeField] private GameObject idlePanel;
@@ -39,8 +49,11 @@ public class ExperimentManager : MonoBehaviour
     [SerializeField] private GameObject finishedPanel;
 
     private IMarkerSender markerSender;
+    private bool isTestMode = false;
+    private bool hasLoggedMissingStartMenu = false;
 
     public ExperimentState CurrentState { get; private set; } = ExperimentState.Idle;
+    public bool IsTestMode => isTestMode;
 
     // ステート変更時に他のコントローラー（TaskA/B ControllerやUI等）へ通知するイベント
     public event Action<ExperimentState> OnStateChanged;
@@ -62,7 +75,14 @@ public class ExperimentManager : MonoBehaviour
 
     private void Start()
     {
-        UpdateStatePanels(CurrentState);
+        if (startMenuPanel != null)
+        {
+            ChangeState(ExperimentState.StartMenu);
+        }
+        else
+        {
+            UpdateStatePanels(CurrentState);
+        }
     }
 
     /// <summary>
@@ -91,6 +111,36 @@ public class ExperimentManager : MonoBehaviour
         }
 
         OnStateChanged?.Invoke(newState);
+    }
+
+    public void ShowStartMenu()
+    {
+        SwitchState(ExperimentState.StartMenu, false);
+    }
+
+    public void ShowTestMenu()
+    {
+        SwitchState(ExperimentState.TestMenu, true);
+    }
+
+    public void ShowExperimentMenu()
+    {
+        SwitchState(ExperimentState.ExperimentMenu, false);
+    }
+
+    public void StartTestTaskA()
+    {
+        SwitchState(ExperimentState.TaskA_Induction, true);
+    }
+
+    public void StartTestTaskB()
+    {
+        SwitchState(ExperimentState.TaskB_Induction, true);
+    }
+
+    public void StartExperiment()
+    {
+        SwitchState(ExperimentState.Consent, false);
     }
 
     /// <summary>
@@ -208,7 +258,28 @@ public class ExperimentManager : MonoBehaviour
     // Task A（自動バーチャルハンド動作）と Task B（QUEST法 + Δt遅延）のUI切り替え
     private void UpdateStatePanels(ExperimentState state)
     {
-        SetPanelActive(idlePanel, state == ExperimentState.Idle);
+        bool showStartMenu = state == ExperimentState.StartMenu;
+        bool showTestMenu = state == ExperimentState.TestMenu;
+        bool showExperimentMenu = state == ExperimentState.ExperimentMenu;
+
+        if (showStartMenu && startMenuPanel == null && idlePanel != null && !hasLoggedMissingStartMenu)
+        {
+            Debug.LogWarning("[ExperimentManager] Start menu panel is not assigned. Falling back to idlePanel.");
+            hasLoggedMissingStartMenu = true;
+        }
+
+        SetPanelActive(startMenuPanel, showStartMenu);
+        SetPanelActive(testMenuPanel, showTestMenu);
+        SetPanelActive(experimentMenuPanel, showExperimentMenu);
+
+        if (showStartMenu && startMenuPanel == null)
+        {
+            SetPanelActive(idlePanel, true);
+        }
+        else
+        {
+            SetPanelActive(idlePanel, state == ExperimentState.Idle);
+        }
         SetPanelActive(consentPanel, state == ExperimentState.Consent);
         SetPanelActive(practicePanel, state == ExperimentState.Practice);
         SetPanelActive(taskAPanel, IsTaskAState(state));
@@ -223,6 +294,31 @@ public class ExperimentManager : MonoBehaviour
         {
             panel.SetActive(isActive);
         }
+    }
+
+    private void AbortActiveTasks()
+    {
+        if (vhiInductionController != null)
+        {
+            vhiInductionController.AbortInduction();
+        }
+
+        if (taskAController != null)
+        {
+            taskAController.AbortTask();
+        }
+
+        if (taskBController != null)
+        {
+            taskBController.AbortTask();
+        }
+    }
+
+    private void SwitchState(ExperimentState targetState, bool testMode)
+    {
+        isTestMode = testMode;
+        AbortActiveTasks();
+        ChangeState(targetState);
     }
 
     private static bool IsTaskAState(ExperimentState state)
