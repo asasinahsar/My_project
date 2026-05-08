@@ -266,6 +266,11 @@ public class ExperimentManager : MonoBehaviour
         bool showTestMenu = state == ExperimentState.TestMenu;
         bool showExperimentMenu = state == ExperimentState.ExperimentMenu;
 
+        if (showStartMenu && startMenuPanel == null && idlePanel != null)
+        {
+            Debug.LogWarning("[ExperimentManager] Start menu panel is not assigned. Falling back to idlePanel.");
+        }
+
         SetPanelActive(startMenuPanel, showStartMenu);
         SetPanelActive(testMenuPanel, showTestMenu);
         SetPanelActive(experimentMenuPanel, showExperimentMenu);
