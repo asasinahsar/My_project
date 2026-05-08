@@ -19,7 +19,8 @@ public class TaskBController : MonoBehaviour
     private int totalTrials = 55; // QUEST 35回 + 固定 20回
     
     // SoA回答受付用
-    private int currentSoAResponse = -1;
+    private const int InvalidSoAResponse = -1;
+    private int currentSoAResponse = InvalidSoAResponse;
     
     // UI表示制御用のイベント（VASInputUI.cs等から購読する）
     public event Action OnSoAWindowOpened;
@@ -126,11 +127,11 @@ public class TaskBController : MonoBehaviour
             SendMarker($"MotionOnset_B_Delta{currentDeltaMs}ms");
 
             // 7. 実験者または被験者からのSoA有無（1/0）を記録（最大3秒待機）
-            currentSoAResponse = -1;
+            currentSoAResponse = InvalidSoAResponse;
             OnSoAWindowOpened?.Invoke(); // UIを表示
 
             float responseTimer = 0f;
-            while (currentSoAResponse == -1 && responseTimer < 3.0f)
+            while (currentSoAResponse == InvalidSoAResponse && responseTimer < 3.0f)
             {
                 responseTimer += Time.deltaTime;
                 yield return null;
@@ -141,7 +142,7 @@ public class TaskBController : MonoBehaviour
             float trialEndTime = Time.realtimeSinceStartup;
 
             // 8. 応答処理とQUEST更新
-            if (currentSoAResponse != -1)
+            if (currentSoAResponse != InvalidSoAResponse)
             {
                 SendMarker($"SoAResponse_{currentSoAResponse}");
                 
@@ -176,7 +177,7 @@ public class TaskBController : MonoBehaviour
     public void AbortTask()
     {
         StopAllCoroutines();
-        currentSoAResponse = -1;
+        currentSoAResponse = InvalidSoAResponse;
         OnSoAWindowClosed?.Invoke();
         if (handVisualizer != null)
         {

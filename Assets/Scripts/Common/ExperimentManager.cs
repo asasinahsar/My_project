@@ -50,8 +50,9 @@ public class ExperimentManager : MonoBehaviour
 
     private IMarkerSender markerSender;
     private bool isTestMode = false;
+    private bool hasLoggedMissingStartMenu = false;
 
-    public ExperimentState CurrentState { get; private set; } = ExperimentState.StartMenu;
+    public ExperimentState CurrentState { get; private set; } = ExperimentState.Idle;
     public bool IsTestMode => isTestMode;
 
     // ステート変更時に他のコントローラー（TaskA/B ControllerやUI等）へ通知するイベント
@@ -74,7 +75,14 @@ public class ExperimentManager : MonoBehaviour
 
     private void Start()
     {
-        UpdateStatePanels(CurrentState);
+        if (startMenuPanel != null)
+        {
+            ChangeState(ExperimentState.StartMenu);
+        }
+        else
+        {
+            UpdateStatePanels(CurrentState);
+        }
     }
 
     /// <summary>
@@ -266,9 +274,10 @@ public class ExperimentManager : MonoBehaviour
         bool showTestMenu = state == ExperimentState.TestMenu;
         bool showExperimentMenu = state == ExperimentState.ExperimentMenu;
 
-        if (showStartMenu && startMenuPanel == null && idlePanel != null)
+        if (showStartMenu && startMenuPanel == null && idlePanel != null && !hasLoggedMissingStartMenu)
         {
             Debug.LogWarning("[ExperimentManager] Start menu panel is not assigned. Falling back to idlePanel.");
+            hasLoggedMissingStartMenu = true;
         }
 
         SetPanelActive(startMenuPanel, showStartMenu);
