@@ -44,9 +44,15 @@ public class ExperimentManager : MonoBehaviour
     [SerializeField] private GameObject idlePanel;
     [SerializeField] private GameObject consentPanel;
     [SerializeField] private GameObject practicePanel;
-    [SerializeField] private GameObject taskAPanel;
-    [SerializeField] private GameObject taskBPanel;
+    [SerializeField] private GameObject taskAInductionPanel;
+    [SerializeField] private GameObject taskAVASCheckPanel;
+    [SerializeField] private GameObject taskABaselinePanel;
+    [SerializeField] private GameObject taskAMainPanel;
     [SerializeField] private GameObject blockRestPanel;
+    [SerializeField] private GameObject taskBInductionPanel;
+    [SerializeField] private GameObject taskBVASCheckPanel;
+    [SerializeField] private GameObject taskBBaselinePanel;
+    [SerializeField] private GameObject taskBMainPanel;
     [SerializeField] private GameObject finishedPanel;
 
     private IMarkerSender markerSender;
@@ -86,7 +92,7 @@ public class ExperimentManager : MonoBehaviour
         }
         else
         {
-            UpdateStatePanels(CurrentState);
+            UpdateUIPanels(CurrentState);
         }
     }
 
@@ -99,7 +105,7 @@ public class ExperimentManager : MonoBehaviour
 
         CurrentState = newState;
         Debug.Log($"[ExperimentManager] State Transition -> {newState}");
-        UpdateStatePanels(newState);
+        UpdateUIPanels(newState);
         
         // ステート突入時の汎用マーカー送出
         switch (newState)
@@ -261,7 +267,7 @@ public class ExperimentManager : MonoBehaviour
     }
 
     // Task A（自動バーチャルハンド動作）と Task B（QUEST法 + Δt遅延）のUI切り替え
-    private void UpdateStatePanels(ExperimentState state)
+    private void UpdateUIPanels(ExperimentState state)
     {
         bool showStartMenu = state == ExperimentState.StartMenu;
         bool showTestMenu = state == ExperimentState.TestMenu;
@@ -277,20 +283,24 @@ public class ExperimentManager : MonoBehaviour
         SetPanelActive(testMenuPanel, showTestMenu);
         SetPanelActive(experimentMenuPanel, showExperimentMenu);
 
+        SetAllStatePanelsActive(false);
+
         if (showStartMenu && startMenuPanel == null)
         {
             SetPanelActive(idlePanel, true);
+            return;
         }
-        else
+
+        if (showStartMenu || showTestMenu || showExperimentMenu)
         {
-            SetPanelActive(idlePanel, state == ExperimentState.Idle);
+            return;
         }
-        SetPanelActive(consentPanel, state == ExperimentState.Consent);
-        SetPanelActive(practicePanel, state == ExperimentState.Practice);
-        SetPanelActive(taskAPanel, IsTaskAState(state));
-        SetPanelActive(taskBPanel, IsTaskBState(state));
-        SetPanelActive(blockRestPanel, state == ExperimentState.BlockRest);
-        SetPanelActive(finishedPanel, state == ExperimentState.Finished);
+
+        GameObject targetPanel = GetPanelForState(state);
+        if (targetPanel != null)
+        {
+            SetPanelActive(targetPanel, true);
+        }
     }
 
     private void SetPanelActive(GameObject panel, bool isActive)
@@ -342,19 +352,41 @@ public class ExperimentManager : MonoBehaviour
         }
     }
 
-    private static bool IsTaskAState(ExperimentState state)
+    private void SetAllStatePanelsActive(bool isActive)
     {
-        return state == ExperimentState.TaskA_Induction
-            || state == ExperimentState.TaskA_VASCheck
-            || state == ExperimentState.TaskA_Baseline
-            || state == ExperimentState.TaskA_Main;
+        SetPanelActive(idlePanel, isActive);
+        SetPanelActive(consentPanel, isActive);
+        SetPanelActive(practicePanel, isActive);
+        SetPanelActive(taskAInductionPanel, isActive);
+        SetPanelActive(taskAVASCheckPanel, isActive);
+        SetPanelActive(taskABaselinePanel, isActive);
+        SetPanelActive(taskAMainPanel, isActive);
+        SetPanelActive(blockRestPanel, isActive);
+        SetPanelActive(taskBInductionPanel, isActive);
+        SetPanelActive(taskBVASCheckPanel, isActive);
+        SetPanelActive(taskBBaselinePanel, isActive);
+        SetPanelActive(taskBMainPanel, isActive);
+        SetPanelActive(finishedPanel, isActive);
     }
 
-    private static bool IsTaskBState(ExperimentState state)
+    private GameObject GetPanelForState(ExperimentState state)
     {
-        return state == ExperimentState.TaskB_Induction
-            || state == ExperimentState.TaskB_VASCheck
-            || state == ExperimentState.TaskB_Baseline
-            || state == ExperimentState.TaskB_Main;
+        return state switch
+        {
+            ExperimentState.Idle => idlePanel,
+            ExperimentState.Consent => consentPanel,
+            ExperimentState.Practice => practicePanel,
+            ExperimentState.TaskA_Induction => taskAInductionPanel,
+            ExperimentState.TaskA_VASCheck => taskAVASCheckPanel,
+            ExperimentState.TaskA_Baseline => taskABaselinePanel,
+            ExperimentState.TaskA_Main => taskAMainPanel,
+            ExperimentState.BlockRest => blockRestPanel,
+            ExperimentState.TaskB_Induction => taskBInductionPanel,
+            ExperimentState.TaskB_VASCheck => taskBVASCheckPanel,
+            ExperimentState.TaskB_Baseline => taskBBaselinePanel,
+            ExperimentState.TaskB_Main => taskBMainPanel,
+            ExperimentState.Finished => finishedPanel,
+            _ => null
+        };
     }
 }
