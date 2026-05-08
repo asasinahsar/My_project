@@ -145,7 +145,7 @@ public class HandVisualizer : MonoBehaviour
 
     public void StopAutoMotion()
     {
-        bool wasAutoMotionRunning = autoMotionCoroutine != null || isAutoMode;
+        bool wasAutoMotionRunning = isAutoMode;
 
         if (autoMotionCoroutine != null)
         {
