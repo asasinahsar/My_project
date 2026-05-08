@@ -285,14 +285,21 @@ public class ExperimentManager : MonoBehaviour
 
         SetAllStatePanelsActive(false);
 
+        if (showStartMenu && startMenuPanel == null)
+        {
+            SetPanelActive(idlePanel, true);
+            return;
+        }
+
+        if (showStartMenu || showTestMenu || showExperimentMenu)
+        {
+            return;
+        }
+
         GameObject targetPanel = GetPanelForState(state);
         if (targetPanel != null)
         {
             SetPanelActive(targetPanel, true);
-        }
-        else if (showStartMenu && startMenuPanel == null)
-        {
-            SetPanelActive(idlePanel, true);
         }
     }
 
