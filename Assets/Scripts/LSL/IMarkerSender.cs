@@ -1,4 +1,4 @@
-namespace LSL
+namespace UnityVirtual.LSL
 {
     // マーカー送信処理を抽象化するためのインターフェース
     public interface IMarkerSender

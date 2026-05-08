@@ -1,6 +1,6 @@
 using UnityEngine;
 using System;
-using LSL;
+using UnityVirtual.LSL;
 using UnityEngine.Serialization;
 
 public enum ExperimentState

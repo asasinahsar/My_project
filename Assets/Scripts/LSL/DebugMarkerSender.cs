@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace LSL
+namespace UnityVirtual.LSL
 {
     public class DebugMarkerSender : MonoBehaviour, IMarkerSender
     {
