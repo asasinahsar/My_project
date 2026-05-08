@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using LSL;
 using UnityEngine.Serialization;
+using UnityVirtual.LSL;
 
 public class TaskBController : MonoBehaviour
 {

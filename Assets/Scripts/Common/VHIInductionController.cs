@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections;
 using LSL;
 using UnityEngine.Serialization;
+using UnityVirtual.LSL;
 
 public class VHIInductionController : MonoBehaviour
 {
