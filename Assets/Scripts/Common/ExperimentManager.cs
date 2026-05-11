@@ -135,12 +135,14 @@ public class ExperimentManager : MonoBehaviour
 
     public void StartTestTaskA()
     {
-        SwitchState(ExperimentState.TaskA_Induction, true);
+        // テストモード時は誘導・VAS確認・ベースラインをスキップし、直接Mainステートへ移行
+        SwitchState(ExperimentState.TaskA_Main, true);
     }
 
     public void StartTestTaskB()
     {
-        SwitchState(ExperimentState.TaskB_Induction, true);
+        // テストモード時は誘導・VAS確認・ベースラインをスキップし、直接Mainステートへ移行
+        SwitchState(ExperimentState.TaskB_Main, true);
     }
 
     public void StartExperiment()
