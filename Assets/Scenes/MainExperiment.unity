@@ -273,7 +273,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &10990835
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -466,6 +466,11 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 42259782}
   m_CullTransparentMesh: 1
+--- !u!4 &59630221 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3849287962258532554, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+  m_PrefabInstance: {fileID: 1132124954}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &94429220
 GameObject:
   m_ObjectHideFlags: 0
@@ -936,8 +941,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8b59a92d3e23065428bb1a6075d14073, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TaskBController
-  handVisualizer: {fileID: 0}
-  markerSenderBehaviour: {fileID: 0}
+  handVisualizer: {fileID: 1234352776}
+  markerSenderBehaviour: {fileID: 1794602102}
   questTrialsCount: 35
 --- !u!1 &284178682
 GameObject:
@@ -2679,6 +2684,11 @@ Transform:
   - {fileID: 1028452345}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &912039025 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2190069929221440156, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+  m_PrefabInstance: {fileID: 1132124954}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &957942227
 GameObject:
   m_ObjectHideFlags: 0
@@ -2696,7 +2706,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &957942228
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2906,6 +2916,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 876247331}
     m_Modifications:
+    - target: {fileID: 782189712092979765, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1367778769795980796, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_SystemGestureStarted.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_BoolArgument
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1367778769795980796, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_SystemGestureStarted.m_PersistentCalls.m_Calls.Array.data[1].m_Arguments.m_BoolArgument
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 2243020122175513880, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_SizeDelta.x
       value: 0
@@ -2989,6 +3011,26 @@ PrefabInstance:
     - target: {fileID: 2243020123108092049, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_SizeDelta.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2693064462633345151, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_PokeGestureStarted.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_BoolArgument
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3163147119934678178, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3776134002055136721, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4025051795825305909, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4381072889419385576, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4750419573833148750, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_AnchorMax.y
@@ -3102,6 +3144,26 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: -23
       objectReference: {fileID: 0}
+    - target: {fileID: 4996476745435726235, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5600836331189696657, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5949727424041121515, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_DrawMeshes
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5949727424041121515, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_DebugDrawJoints
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8477636975323410260, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8806329115733545877, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_Name
       value: Complete XR Origin Set Up Hands Variant
@@ -3145,6 +3207,14 @@ PrefabInstance:
     - target: {fileID: 8806329115733545878, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8929069713983759999, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8935853449824297509, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3584,8 +3654,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2bb962f195078fc4f8e330bed10c1c13, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VHIInductionController
-  handVisualizer: {fileID: 0}
-  markerSenderBehaviour: {fileID: 0}
+  handVisualizer: {fileID: 1234352776}
+  markerSenderBehaviour: {fileID: 1794602102}
   taskAController: {fileID: 148705043}
 --- !u!114 &1234352776
 MonoBehaviour:
@@ -3596,12 +3666,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 1234352773}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2bb962f195078fc4f8e330bed10c1c13, type: 3}
+  m_Script: {fileID: 11500000, guid: 01cf4c58ea1f2404f80030a35dddcf54, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VHIInductionController
-  handVisualizer: {fileID: 0}
-  markerSenderBehaviour: {fileID: 0}
-  taskAController: {fileID: 0}
+  m_EditorClassIdentifier: Assembly-CSharp::HandVisualizer
+  isAutoMode: 0
+  delayMs: 0
+  actualHandWrist: {fileID: 59630221}
+  virtualHandWrist: {fileID: 912039025}
+  actualJoints: []
+  virtualJoints: []
+  velocityThreshold: 0.05
 --- !u!1 &1249617917
 GameObject:
   m_ObjectHideFlags: 0
@@ -3851,7 +3925,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1288644575
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4087,8 +4161,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e3583cd4b7c45634d8f819617715d868, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TaskAController
-  handVisualizer: {fileID: 0}
-  markerSenderBehaviour: {fileID: 0}
+  handVisualizer: {fileID: 1234352776}
+  markerSenderBehaviour: {fileID: 1794602102}
   trialsPerBlock: 20
 --- !u!1 &1407765009
 GameObject:
@@ -4586,7 +4660,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1588873742
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5981,7 +6055,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1903303314
 MonoBehaviour:
   m_ObjectHideFlags: 0

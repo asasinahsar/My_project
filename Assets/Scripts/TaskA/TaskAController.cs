@@ -106,7 +106,9 @@ public class TaskAController : MonoBehaviour
             SendMarker(markerPrefix);
 
             // 3. 自動動作の選択とトリガー
-            AutoMotionType motionType = (AutoMotionType)UnityEngine.Random.Range(0, 4);
+            // 【変更箇所】UnityEngine.Random.Range(0, 4) によるランダム選択を削除し、
+            // 常に CompoundMotion のみが実行されるように固定しました。
+            AutoMotionType motionType = AutoMotionType.CompoundMotion;
             handVisualizer.StartAutoMotion(motionType);
 
             float motionOnsetTime = Time.realtimeSinceStartup; // 実際のオンセットマーカーはHandVisualizerから飛ぶ

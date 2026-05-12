@@ -3,12 +3,10 @@ using System;
 using System.Collections;
 using UnityVirtual.Common; // RingBuffer用
 
+// 【変更の理由】方針Aに基づき、既存の4種類の動作を削除し、新しい複合運動1つに固定しました。
 public enum AutoMotionType
 {
-    WristExtension,
-    WristFlexion,
-    ProSupination,
-    SupProination
+    CompoundMotion
 }
 
 public class HandVisualizer : MonoBehaviour
@@ -27,6 +25,13 @@ public class HandVisualizer : MonoBehaviour
 
     [Header("Onset Detection (Task B)")]
     [SerializeField] private float velocityThreshold = 0.05f; // 閾値 (m/s)
+
+    // --- 新規追加: Compound Motion用の設定変数 ---
+    [Header("Compound Motion Settings (Task A)")]
+    [SerializeField] private Vector3 flexionAxis = Vector3.right;          // 掌屈の回転軸
+    [SerializeField] private float flexionAngle = 45f;                     // 掌屈の最大角度
+    [SerializeField] private Vector3 ulnarDeviationAxis = Vector3.forward; // 尺屈の回転軸
+    [SerializeField] private float ulnarDeviationAngle = 20f;              // 尺屈の最大角度
     
     public Action OnMovementDetected;
     public Action<string> OnMarkerRequested; // LSLマーカー送出要求
@@ -173,33 +178,18 @@ public class HandVisualizer : MonoBehaviour
             float t = Mathf.PingPong(elapsed, duration / 2f) / (duration / 2f);
             t = Mathf.SmoothStep(0, 1, t); // イーズイン・アウト
 
-            float angle = 0f;
-            Vector3 axis = Vector3.right;
+            // 【削除と変更の理由】既存のswitch文による4種類の動作分岐を削除し、
+            // Inspectorから設定された軸と角度に基づく掌屈・尺屈の複合運動のみを計算・合成する処理に置き換えました。
+            float currentFlexion = Mathf.Lerp(0, flexionAngle, t);
+            float currentUlnar = Mathf.Lerp(0, ulnarDeviationAngle, t);
 
-            switch (motionType)
-            {
-                case AutoMotionType.WristExtension:
-                    angle = Mathf.Lerp(0, 30f, t);
-                    axis = Vector3.right;
-                    break;
-                case AutoMotionType.WristFlexion:
-                    angle = Mathf.Lerp(0, -30f, t);
-                    axis = Vector3.right;
-                    break;
-                case AutoMotionType.ProSupination:
-                    angle = Mathf.Lerp(0, 45f, t);
-                    axis = Vector3.forward;
-                    break;
-                case AutoMotionType.SupProination:
-                    angle = Mathf.Lerp(0, -45f, t);
-                    axis = Vector3.forward;
-                    break;
-            }
+            Quaternion flexRot = Quaternion.AngleAxis(currentFlexion, flexionAxis);
+            Quaternion ulnarRot = Quaternion.AngleAxis(currentUlnar, ulnarDeviationAxis);
 
-            // 回転を適用（実際のリグの軸設定に合わせて Vector3.right 等は要調整）
             if (virtualHandWrist != null)
             {
-                virtualHandWrist.localRotation = baseRot * Quaternion.AngleAxis(angle, axis);
+                // 合成して手首に適用（ベースの回転 × 掌屈 × 尺屈）
+                virtualHandWrist.localRotation = baseRot * flexRot * ulnarRot;
             }
 
             yield return null;
