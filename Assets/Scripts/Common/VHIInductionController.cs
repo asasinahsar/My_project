@@ -66,9 +66,8 @@ public class VHIInductionController : MonoBehaviour
         SendMarker($"InductionStart_A_{condition}");
         Debug.Log($"[VHI Induction] Task A Phase 1 (Brush Stroking) Started. Condition: {condition}");
 
-        // テストモードなら2秒、本番なら120秒待機
-        float waitTime = ExperimentManager.Instance.IsTestMode ? 2f : 120f;
-        yield return new WaitForSeconds(waitTime);
+        // 本番用待機時間（120秒）
+        yield return new WaitForSeconds(120f);
 
         SendMarker($"InductionEnd_A_{condition}");
         Debug.Log("[VHI Induction] Task A Phase 1 Ended. Transitioning to VAS Check.");
@@ -82,8 +81,8 @@ public class VHIInductionController : MonoBehaviour
         SendMarker("InductionStart_B");
         Debug.Log("[VHI Induction] Task B Phase 1 (Brush Stroking) Started.");
 
-        float waitTimePhase1 = ExperimentManager.Instance.IsTestMode ? 1f : 60f;
-        yield return new WaitForSeconds(waitTimePhase1);
+        // 本番用待機時間（60秒）
+        yield return new WaitForSeconds(60f);
 
         // Phase 2: 慣らし随意運動（能動的SoA最大化） 60秒
         // Δt = 0ms（遅延なし）に設定して完全同期させる
@@ -91,8 +90,8 @@ public class VHIInductionController : MonoBehaviour
         SendMarker("ActiveMovementStart_B");
         Debug.Log("[VHI Induction] Task B Phase 2 (Active Movement, Δt=0) Started.");
 
-        float waitTimePhase2 = ExperimentManager.Instance.IsTestMode ? 1f : 60f;
-        yield return new WaitForSeconds(waitTimePhase2);
+        // 本番用待機時間（60秒）
+        yield return new WaitForSeconds(60f);
 
         SendMarker("ActiveMovementEnd_B");
         SendMarker("InductionEnd_B");
@@ -109,9 +108,8 @@ public class VHIInductionController : MonoBehaviour
         SendMarker($"BaselineStart{markerSuffix}");
         Debug.Log($"[VHI Induction] Baseline {task} Started. Please keep hand static for 30s.");
 
-        // テストモードなら2秒、本番なら30秒待機
-        float waitTime = ExperimentManager.Instance.IsTestMode ? 2f : 30f;
-        yield return new WaitForSeconds(waitTime);
+        // 本番用待機時間（30秒）
+        yield return new WaitForSeconds(30f);
 
         SendMarker($"BaselineEnd{markerSuffix}");
         
