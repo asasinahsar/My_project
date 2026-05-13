@@ -6,18 +6,30 @@ public class TestModeController : MonoBehaviour
     [Header("Dependencies")]
     [SerializeField] private HandVisualizer handVisualizer;
 
+    [Header("UI Panels")]
+    [SerializeField] private GameObject testMenuPanel;
+    [SerializeField] private GameObject testRunningPanel;
+
     private Coroutine loopCoroutine;
 
     // テストメニューのTaskAボタンから呼び出される
     public void StartTestTaskA()
     {
+        Debug.Log("[TestMode] Task A Test Button Clicked!");
+
+        // UIの切り替え（メニューを隠して、実行中パネルを出す）
+        if (testMenuPanel != null) testMenuPanel.SetActive(false);
+        if (testRunningPanel != null) testRunningPanel.SetActive(true);
+
         if (loopCoroutine != null) StopCoroutine(loopCoroutine);
         loopCoroutine = StartCoroutine(TestLoopRoutine());
     }
 
-    // テスト停止時（元のメニューに戻る際など）に呼び出される
+    // テスト停止時（テスト実行中パネルの「停止」ボタンから呼び出される）
     public void StopTest()
     {
+        Debug.Log("[TestMode] Test Stopped.");
+
         if (loopCoroutine != null)
         {
             StopCoroutine(loopCoroutine);
@@ -27,6 +39,10 @@ public class TestModeController : MonoBehaviour
         {
             handVisualizer.StopAutoMotion();
         }
+
+        // UIの切り替え（実行中パネルを隠して、メニューに戻す）
+        if (testRunningPanel != null) testRunningPanel.SetActive(false);
+        if (testMenuPanel != null) testMenuPanel.SetActive(true);
     }
 
     private IEnumerator TestLoopRoutine()

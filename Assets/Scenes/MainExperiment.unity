@@ -655,6 +655,11 @@ MonoBehaviour:
   handVisualizer: {fileID: 1234352776}
   markerSenderBehaviour: {fileID: 1794602102}
   trialsPerBlock: 20
+--- !u!4 &148977105 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6625673082946307579, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+  m_PrefabInstance: {fileID: 1132124954}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &161630065
 GameObject:
   m_ObjectHideFlags: 0
@@ -738,8 +743,8 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1407765011}
-        m_TargetAssemblyTypeName: ExperimentManager, Assembly-CSharp
+      - m_Target: {fileID: 208276427}
+        m_TargetAssemblyTypeName: TestModeController, Assembly-CSharp
         m_MethodName: StartTestTaskA
         m_Mode: 1
         m_Arguments:
@@ -897,6 +902,51 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 171632823}
   m_CullTransparentMesh: 1
+--- !u!1 &208276425
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 208276426}
+  - component: {fileID: 208276427}
+  m_Layer: 0
+  m_Name: TestMode_Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &208276426
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 208276425}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1251832583}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &208276427
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 208276425}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3302e5fa1dd873f4da7cf0e7c4156d38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TestModeController
+  handVisualizer: {fileID: 1234352776}
 --- !u!1 &270334411
 GameObject:
   m_ObjectHideFlags: 0
@@ -1522,6 +1572,11 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 409689199}
   m_CullTransparentMesh: 1
+--- !u!4 &439704419 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8957553985754898075, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+  m_PrefabInstance: {fileID: 1132124954}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &469413736
 GameObject:
   m_ObjectHideFlags: 0
@@ -2652,6 +2707,11 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 799410791}
   m_CullTransparentMesh: 1
+--- !u!4 &858485342 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 123007337347674375, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+  m_PrefabInstance: {fileID: 1132124954}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &876247330
 GameObject:
   m_ObjectHideFlags: 0
@@ -2687,6 +2747,11 @@ Transform:
 --- !u!4 &912039025 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2190069929221440156, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+  m_PrefabInstance: {fileID: 1132124954}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &952076271 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3237859381369698134, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
   m_PrefabInstance: {fileID: 1132124954}
   m_PrefabAsset: {fileID: 0}
 --- !u!1 &957942227
@@ -3680,6 +3745,13 @@ MonoBehaviour:
   flexionAngle: 45
   ulnarDeviationAxis: {x: 0, y: 0, z: 1}
   ulnarDeviationAngle: 20
+  testMpJoints:
+  - {fileID: 148977105}
+  - {fileID: 858485342}
+  - {fileID: 439704419}
+  - {fileID: 952076271}
+  testFlexionAxis: {x: 1, y: 0, z: 0}
+  testFlexionAngle: 90
 --- !u!1 &1249617917
 GameObject:
   m_ObjectHideFlags: 0
@@ -3910,6 +3982,7 @@ Transform:
   - {fileID: 1234352774}
   - {fileID: 1364474149}
   - {fileID: 270334412}
+  - {fileID: 208276426}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1288644574
