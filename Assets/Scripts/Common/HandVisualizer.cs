@@ -3,7 +3,6 @@ using System;
 using System.Collections;
 using UnityVirtual.Common; // RingBuffer用
 
-// 【変更の理由】方針Aに基づき、既存の4種類の動作を削除し、新しい複合運動1つに固定しました。
 public enum AutoMotionType
 {
     CompoundMotion
@@ -26,13 +25,18 @@ public class HandVisualizer : MonoBehaviour
     [Header("Onset Detection (Task B)")]
     [SerializeField] private float velocityThreshold = 0.05f; // 閾値 (m/s)
 
-    // --- 新規追加: Compound Motion用の設定変数 ---
     [Header("Compound Motion Settings (Task A)")]
     [SerializeField] private Vector3 flexionAxis = Vector3.right;          // 掌屈の回転軸
     [SerializeField] private float flexionAngle = 45f;                     // 掌屈の最大角度
     [SerializeField] private Vector3 ulnarDeviationAxis = Vector3.forward; // 尺屈の回転軸
     [SerializeField] private float ulnarDeviationAngle = 20f;              // 尺屈の最大角度
     
+    // --- 新規追加: テストモード専用設定 ---
+    [Header("Test Mode Settings (MP Flexion)")]
+    [SerializeField] private Transform[] testMpJoints = new Transform[4]; // Index, Middle, Ring, Pinky のMP関節をアサイン
+    [SerializeField] private Vector3 testFlexionAxis = Vector3.right;     // お辞儀の回転軸
+    [SerializeField] private float testFlexionAngle = 90f;                // お辞儀の最大角度
+
     public Action OnMovementDetected;
     public Action<string> OnMarkerRequested; // LSLマーカー送出要求
 
@@ -60,7 +64,6 @@ public class HandVisualizer : MonoBehaviour
 
     private void Awake()
     {
-        // 1000フレーム（約11秒分）のメモリを事前確保
         poseBuffer = new RingBuffer<HandPose>(1000, () => new HandPose(actualJoints.Length));
     }
 
@@ -76,9 +79,6 @@ public class HandVisualizer : MonoBehaviour
 
         float currentTime = Time.realtimeSinceStartup;
 
-        // --------------------------------------------------------
-        // 1. 速度による運動開始（Onset）の検知 (Task B用)
-        // --------------------------------------------------------
         float speed = Vector3.Distance(actualHandWrist.position, previousPosition) / Time.deltaTime;
         if (!isAutoMode && !hasDetectedMotionThisTrial && speed > velocityThreshold)
         {
@@ -87,9 +87,6 @@ public class HandVisualizer : MonoBehaviour
         }
         previousPosition = actualHandWrist.position;
 
-        // --------------------------------------------------------
-        // 2. 現在の実際の姿勢をリングバッファに記録
-        // --------------------------------------------------------
         HandPose currentPose = poseBuffer.GetNextWritableItem();
         currentPose.wristPosition = actualHandWrist.position;
         currentPose.wristRotation = actualHandWrist.rotation;
@@ -100,16 +97,12 @@ public class HandVisualizer : MonoBehaviour
         }
         poseBuffer.Commit(currentTime);
 
-        // --------------------------------------------------------
-        // 3. 仮想手の描画更新（AutoMode か 遅延Mode か）
-        // --------------------------------------------------------
         if (!isAutoMode)
         {
             ApplyDelayedPose();
         }
     }
 
-    // 遅延を適用した姿勢の反映 (Task B)
     private void ApplyDelayedPose()
     {
         HandPose delayedPose = poseBuffer.GetAtDelay(delayMs);
@@ -124,20 +117,14 @@ public class HandVisualizer : MonoBehaviour
         }
     }
 
-    // ==========================================================
-    // Task A：自動アニメーション制御（スクリプト制御）
-    // ==========================================================
-
-    // Task Aの async 条件などで使用する 2cmの空間オフセット
     public void SetAsyncOffset(bool applyOffset)
     {
         if (applyOffset)
-            virtualHandWrist.localPosition = new Vector3(0, 0, 0.02f); // 2cm遠位
+            virtualHandWrist.localPosition = new Vector3(0, 0, 0.02f);
         else
             virtualHandWrist.localPosition = Vector3.zero;
     }
 
-    // プロシージャルアニメーションの開始
     public void StartAutoMotion(AutoMotionType motionType)
     {
         StopAutoMotion();
@@ -149,6 +136,13 @@ public class HandVisualizer : MonoBehaviour
         }
 
         autoMotionCoroutine = StartCoroutine(AutoMotionRoutine(motionType));
+    }
+
+    // --- 新規追加: テストモード専用モーションの開始 ---
+    public void StartTestModeMotion()
+    {
+        StopAutoMotion();
+        autoMotionCoroutine = StartCoroutine(TestMotionRoutine());
     }
 
     public void StopAutoMotion()
@@ -166,7 +160,7 @@ public class HandVisualizer : MonoBehaviour
         isAutoMode = true;
         OnMarkerRequested?.Invoke($"MotionOnset_A_{motionType}");
 
-        float duration = 2.0f; // 2秒かけて往復
+        float duration = 2.0f;
         float elapsed = 0f;
         Quaternion baseRot = GetAutoMotionBaseRotation();
 
@@ -174,12 +168,9 @@ public class HandVisualizer : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             
-            // 0 -> 1 -> 0 に滑らかに変化させる (PingPong)
             float t = Mathf.PingPong(elapsed, duration / 2f) / (duration / 2f);
-            t = Mathf.SmoothStep(0, 1, t); // イーズイン・アウト
+            t = Mathf.SmoothStep(0, 1, t);
 
-            // 【削除と変更の理由】既存のswitch文による4種類の動作分岐を削除し、
-            // Inspectorから設定された軸と角度に基づく掌屈・尺屈の複合運動のみを計算・合成する処理に置き換えました。
             float currentFlexion = Mathf.Lerp(0, flexionAngle, t);
             float currentUlnar = Mathf.Lerp(0, ulnarDeviationAngle, t);
 
@@ -188,7 +179,6 @@ public class HandVisualizer : MonoBehaviour
 
             if (virtualHandWrist != null)
             {
-                // 合成して手首に適用（ベースの回転 × 掌屈 × 尺屈）
                 virtualHandWrist.localRotation = baseRot * flexRot * ulnarRot;
             }
 
@@ -198,6 +188,59 @@ public class HandVisualizer : MonoBehaviour
         if (virtualHandWrist != null)
         {
             virtualHandWrist.localRotation = baseRot;
+        }
+
+        ResetAutoMotionState();
+    }
+
+    // --- 新規追加: テストモード専用のお辞儀ルーチン ---
+    private IEnumerator TestMotionRoutine()
+    {
+        isAutoMode = true; // 他の遅延反映などを止める
+
+        float duration = 2.0f; // 2秒かけて往復
+        float elapsed = 0f;
+        
+        // 4本のMP関節のベースとなる回転を保存
+        Quaternion[] baseMpRots = new Quaternion[testMpJoints.Length];
+        for (int i = 0; i < testMpJoints.Length; i++)
+        {
+            if (testMpJoints[i] != null)
+            {
+                baseMpRots[i] = testMpJoints[i].localRotation;
+            }
+        }
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            
+            float t = Mathf.PingPong(elapsed, duration / 2f) / (duration / 2f);
+            t = Mathf.SmoothStep(0, 1, t);
+
+            // MP関節の屈曲（お辞儀）
+            float currentAngle = Mathf.Lerp(0, testFlexionAngle, t);
+            Quaternion flexRot = Quaternion.AngleAxis(currentAngle, testFlexionAxis);
+
+            // 4本のMP関節に適用
+            for (int i = 0; i < testMpJoints.Length; i++)
+            {
+                if (testMpJoints[i] != null)
+                {
+                    testMpJoints[i].localRotation = baseMpRots[i] * flexRot;
+                }
+            }
+
+            yield return null;
+        }
+
+        // 完了後に元の回転にリセット
+        for (int i = 0; i < testMpJoints.Length; i++)
+        {
+            if (testMpJoints[i] != null)
+            {
+                testMpJoints[i].localRotation = baseMpRots[i];
+            }
         }
 
         ResetAutoMotionState();
@@ -225,7 +268,6 @@ public class HandVisualizer : MonoBehaviour
         isAutoMode = false;
     }
 
-    // 試行ごとのオンセット検知フラグのリセット
     public void ResetMotionDetection()
     {
         hasDetectedMotionThisTrial = false;

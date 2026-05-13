@@ -652,8 +652,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e3583cd4b7c45634d8f819617715d868, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TaskAController
-  handVisualizer: {fileID: 0}
-  markerSenderBehaviour: {fileID: 0}
+  handVisualizer: {fileID: 1234352776}
+  markerSenderBehaviour: {fileID: 1794602102}
   trialsPerBlock: 20
 --- !u!1 &161630065
 GameObject:
@@ -2706,7 +2706,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &957942228
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3158,7 +3158,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5949727424041121515, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_DebugDrawJoints
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8477636975323410260, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_IsActive
@@ -3676,6 +3676,10 @@ MonoBehaviour:
   actualJoints: []
   virtualJoints: []
   velocityThreshold: 0.05
+  flexionAxis: {x: 1, y: 0, z: 0}
+  flexionAngle: 45
+  ulnarDeviationAxis: {x: 0, y: 0, z: 1}
+  ulnarDeviationAngle: 20
 --- !u!1 &1249617917
 GameObject:
   m_ObjectHideFlags: 0
@@ -4239,7 +4243,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1525457914
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6545,8 +6549,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8b59a92d3e23065428bb1a6075d14073, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TaskBController
-  handVisualizer: {fileID: 0}
-  markerSenderBehaviour: {fileID: 0}
+  handVisualizer: {fileID: 1234352776}
+  markerSenderBehaviour: {fileID: 1794602102}
   questTrialsCount: 35
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

@@ -51,13 +51,10 @@ public class ExperimentManager : MonoBehaviour
 
     private IMarkerSender markerSender;
     private MarkerSenderRouter markerSenderRouter;
-    private bool isTestMode = false;
     private bool hasLoggedMissingStartMenu = false;
 
     public ExperimentState CurrentState { get; private set; } = ExperimentState.Idle;
-    public bool IsTestMode => isTestMode;
 
-    // ステート変更時に他のコントローラー（TaskA/B ControllerやUI等）へ通知するイベント
     public event Action<ExperimentState> OnStateChanged;
 
     private int taskARetryCount = 0;
@@ -74,8 +71,6 @@ public class ExperimentManager : MonoBehaviour
         {
             Debug.LogWarning("[ExperimentManager] Marker sender is not assigned or does not implement IMarkerSender.");
         }
-
-        ApplyMarkerSenderMode();
     }
 
     private void Start()
@@ -90,9 +85,6 @@ public class ExperimentManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// ステートを強制的に変更し、必要なマーカーを送出します
-    /// </summary>
     public void ChangeState(ExperimentState newState)
     {
         if (CurrentState == newState) return;
@@ -101,7 +93,6 @@ public class ExperimentManager : MonoBehaviour
         Debug.Log($"[ExperimentManager] State Transition -> {newState}");
         UpdateStatePanels(newState);
         
-        // ステート突入時の汎用マーカー送出
         switch (newState)
         {
             case ExperimentState.Practice:
@@ -120,52 +111,35 @@ public class ExperimentManager : MonoBehaviour
 
     public void ShowStartMenu()
     {
-        SwitchState(ExperimentState.StartMenu, false);
+        SwitchState(ExperimentState.StartMenu);
     }
 
     public void ShowTestMenu()
     {
-        SwitchState(ExperimentState.TestMenu, true);
+        SwitchState(ExperimentState.TestMenu);
     }
 
     public void ShowExperimentMenu()
     {
-        SwitchState(ExperimentState.ExperimentMenu, false);
-    }
-
-    public void StartTestTaskA()
-    {
-        // テストモード時は誘導・VAS確認・ベースラインをスキップし、直接Mainステートへ移行
-        SwitchState(ExperimentState.TaskA_Main, true);
-    }
-
-    public void StartTestTaskB()
-    {
-        // テストモード時は誘導・VAS確認・ベースラインをスキップし、直接Mainステートへ移行
-        SwitchState(ExperimentState.TaskB_Main, true);
+        SwitchState(ExperimentState.ExperimentMenu);
     }
 
     public void StartExperiment()
     {
-        SwitchState(ExperimentState.Consent, false);
+        SwitchState(ExperimentState.Consent);
     }
 
-    /// <summary>
-    /// Task A のVAS確認結果を評価し、次のステートを決定します
-    /// </summary>
     public void EvaluateTaskAVAS(int vasValue, string condition)
     {
         SendMarker($"VAS_A_{condition}_{vasValue}");
 
         if (vasValue >= 3)
         {
-            // 成功：ベースラインへ進行し、再試行カウンタをリセット
             taskARetryCount = 0;
             ChangeState(ExperimentState.TaskA_Baseline);
         }
         else
         {
-            // 失敗：条件分岐
             if (taskARetryCount < 1)
             {
                 taskARetryCount++;
@@ -186,22 +160,17 @@ public class ExperimentManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Task B のVAS確認結果を評価し、次のステートを決定します
-    /// </summary>
     public void EvaluateTaskBVAS(int vasValue)
     {
         SendMarker($"VAS_B_{vasValue}");
 
         if (vasValue >= 3)
         {
-            // 成功：ベースラインへ進行し、再試行カウンタをリセット
             taskBRetryCount = 0;
             ChangeState(ExperimentState.TaskB_Baseline);
         }
         else
         {
-            // 失敗：条件分岐
             if (taskBRetryCount < 1)
             {
                 taskBRetryCount++;
@@ -247,9 +216,6 @@ public class ExperimentManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// UIの「緊急停止」ボタンなどから呼び出されるメソッド
-    /// </summary>
     public void EmergencyStop()
     {
         Debug.LogError("[ExperimentManager] Emergency Stop Triggered!");
@@ -262,7 +228,6 @@ public class ExperimentManager : MonoBehaviour
         markerSender.SendMarker(marker);
     }
 
-    // Task A（自動バーチャルハンド動作）と Task B（QUEST法 + Δt遅延）のUI切り替え
     private void UpdateStatePanels(ExperimentState state)
     {
         bool showStartMenu = state == ExperimentState.StartMenu;
@@ -309,39 +274,20 @@ public class ExperimentManager : MonoBehaviour
         {
             vhiInductionController.AbortInduction();
         }
-
         if (taskAController != null)
         {
             taskAController.AbortTask();
         }
-
         if (taskBController != null)
         {
             taskBController.AbortTask();
         }
     }
 
-    private void SwitchState(ExperimentState targetState, bool testMode)
+    private void SwitchState(ExperimentState targetState)
     {
-        UpdateTestMode(testMode);
-
         AbortActiveTasks();
         ChangeState(targetState);
-    }
-
-    private void UpdateTestMode(bool testMode)
-    {
-        if (isTestMode == testMode) return;
-        isTestMode = testMode;
-        ApplyMarkerSenderMode();
-    }
-
-    private void ApplyMarkerSenderMode()
-    {
-        if (markerSenderRouter != null)
-        {
-            markerSenderRouter.SetTestMode(isTestMode);
-        }
     }
 
     private static bool IsTaskAState(ExperimentState state)
