@@ -211,51 +211,49 @@ public class HandVisualizer : MonoBehaviour
     // ★変更: localRotation を直接書かず _testMpTargetRots に格納し、
     //         LateUpdate() 経由で SDK の上書き後に適用する
     private IEnumerator TestMotionRoutine()
+{
+    isAutoMode = true;
+    _isTestMotionActive = true;
+
+    // ★修正: WaitForEndOfFrame()をAndroidで安全な2フレーム待ちに変更
+    yield return null;
+    yield return null;
+
+    Quaternion[] baseMpRots = new Quaternion[testMpJoints.Length];
+    _testMpTargetRots = new Quaternion[testMpJoints.Length];
+
+    for (int i = 0; i < testMpJoints.Length; i++)
     {
-        isAutoMode = true;
-        _isTestMotionActive = true;
+        baseMpRots[i] = testMpJoints[i] != null
+            ? testMpJoints[i].localRotation
+            : Quaternion.identity;
+        _testMpTargetRots[i] = baseMpRots[i];
+    }
 
-        // XR Hands SDK が LateUpdate() でボーンを確定させた後の値を取るため1フレーム待つ
-        yield return new WaitForEndOfFrame();
+    float duration = 2.0f;
+    float elapsed = 0f;
 
-        Quaternion[] baseMpRots = new Quaternion[testMpJoints.Length];
-        _testMpTargetRots = new Quaternion[testMpJoints.Length];
+    while (elapsed < duration)
+    {
+        elapsed += Time.deltaTime;
+
+        float t = Mathf.PingPong(elapsed, duration / 2f) / (duration / 2f);
+        t = Mathf.SmoothStep(0, 1, t);
+
+        float currentAngle = Mathf.Lerp(0, testFlexionAngle, t);
+        Quaternion flexRot = Quaternion.AngleAxis(currentAngle, testFlexionAxis);
 
         for (int i = 0; i < testMpJoints.Length; i++)
         {
-            baseMpRots[i] = testMpJoints[i] != null
-                ? testMpJoints[i].localRotation
-                : Quaternion.identity;
-            _testMpTargetRots[i] = baseMpRots[i];
+            _testMpTargetRots[i] = baseMpRots[i] * flexRot;
         }
 
-        float duration = 2.0f;
-        float elapsed = 0f;
-
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-
-            float t = Mathf.PingPong(elapsed, duration / 2f) / (duration / 2f);
-            t = Mathf.SmoothStep(0, 1, t);
-
-            float currentAngle = Mathf.Lerp(0, testFlexionAngle, t);
-            Quaternion flexRot = Quaternion.AngleAxis(currentAngle, testFlexionAxis);
-
-            for (int i = 0; i < testMpJoints.Length; i++)
-            {
-                // localRotation を直接書かず配列に格納するだけ
-                // → LateUpdate() が SDK の上書き後に実際の適用を行う
-                _testMpTargetRots[i] = baseMpRots[i] * flexRot;
-            }
-
-            yield return null;
-        }
-
-        // モーション完了後にフラグを落とす（LateUpdate の適用も停止する）
-        _isTestMotionActive = false;
-        ResetAutoMotionState();
+        yield return null;
     }
+
+    _isTestMotionActive = false;
+    ResetAutoMotionState();
+}
 
     private Quaternion GetAutoMotionBaseRotation()
     {
