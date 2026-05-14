@@ -35,7 +35,7 @@ public class HandVisualizer : MonoBehaviour
     [SerializeField] private Transform[] testMpJoints = new Transform[4]; // Index, Middle, Ring, Pinky のMP関節をアサイン
     [SerializeField] private Vector3 testFlexionAxis = Vector3.right;      // お辞儀の回転軸
     [SerializeField] private float testFlexionAngle = 90f;                 // お辞儀の最大角度
-　　[SerializeField] private MonoBehaviour xrHandSkeletonDriver;
+　　[SerializeField] private GameObject xrHandSkeletonDriverObject;
     public Action OnMovementDetected;
     public Action<string> OnMarkerRequested; // LSLマーカー送出要求
 
@@ -214,8 +214,10 @@ public class HandVisualizer : MonoBehaviour
     _isTestMotionActive = true;
 
     // ★ XRHandSkeletonDriverを一時停止してSDKの上書きを止める
-    if (xrHandSkeletonDriver != null)
-        xrHandSkeletonDriver.enabled = false;
+    var driver = xrHandSkeletonDriverObject != null
+    ? xrHandSkeletonDriverObject.GetComponent<UnityEngine.XR.Hands.XRHandSkeletonDriver>()
+    : null;
+if (driver != null) driver.enabled = false;
 
     // 2フレーム待ってSDKの最後の書き込みを安定させる
     yield return null;
@@ -260,8 +262,7 @@ public class HandVisualizer : MonoBehaviour
     }
 
     // ★ XRHandSkeletonDriverを再有効化
-    if (xrHandSkeletonDriver != null)
-        xrHandSkeletonDriver.enabled = true;
+    if (driver != null) driver.enabled = true;
 
     _isTestMotionActive = false;
     ResetAutoMotionState();
