@@ -11,8 +11,8 @@ public enum AutoMotionType
 public class HandVisualizer : MonoBehaviour
 {
     [Header("Mode Settings")]
-    public bool isAutoMode = false;  // Task A用
-    public float delayMs = 0f;       // Task B用（TaskBControllerから上書きされる）
+    public bool isAutoMode = false;     // Task A用
+    public float delayMs = 0f;          // Task B用（TaskBControllerから上書きされる）
 
     [Header("Tracking Roots")]
     [SerializeField] private Transform actualHandWrist;
@@ -30,12 +30,11 @@ public class HandVisualizer : MonoBehaviour
     [SerializeField] private float flexionAngle = 45f;                     // 掌屈の最大角度
     [SerializeField] private Vector3 ulnarDeviationAxis = Vector3.forward; // 尺屈の回転軸
     [SerializeField] private float ulnarDeviationAngle = 20f;              // 尺屈の最大角度
-    
-    // --- 新規追加: テストモード専用設定 ---
+
     [Header("Test Mode Settings (MP Flexion)")]
     [SerializeField] private Transform[] testMpJoints = new Transform[4]; // Index, Middle, Ring, Pinky のMP関節をアサイン
-    [SerializeField] private Vector3 testFlexionAxis = Vector3.right;     // お辞儀の回転軸
-    [SerializeField] private float testFlexionAngle = 90f;                // お辞儀の最大角度
+    [SerializeField] private Vector3 testFlexionAxis = Vector3.right;      // お辞儀の回転軸
+    [SerializeField] private float testFlexionAngle = 90f;                 // お辞儀の最大角度
 
     public Action OnMovementDetected;
     public Action<string> OnMarkerRequested; // LSLマーカー送出要求
@@ -46,6 +45,10 @@ public class HandVisualizer : MonoBehaviour
     private Coroutine autoMotionCoroutine;
     private Quaternion autoMotionBaseRotation;
     private bool hasAutoMotionBaseRotation = false;
+
+    // ★追加: テストモード専用フィールド
+    private bool _isTestMotionActive = false;
+    private Quaternion[] _testMpTargetRots;
 
     // バッファに保存する姿勢データのクラス
     public class HandPose
@@ -103,6 +106,19 @@ public class HandVisualizer : MonoBehaviour
         }
     }
 
+    // ★追加: LateUpdate() — XR Hands SDK の上書き後にテストモードの回転を強制適用
+    private void LateUpdate()
+    {
+        if (_isTestMotionActive && _testMpTargetRots != null)
+        {
+            for (int i = 0; i < testMpJoints.Length; i++)
+            {
+                if (testMpJoints[i] != null)
+                    testMpJoints[i].localRotation = _testMpTargetRots[i];
+            }
+        }
+    }
+
     private void ApplyDelayedPose()
     {
         HandPose delayedPose = poseBuffer.GetAtDelay(delayMs);
@@ -138,7 +154,6 @@ public class HandVisualizer : MonoBehaviour
         autoMotionCoroutine = StartCoroutine(AutoMotionRoutine(motionType));
     }
 
-    // --- 新規追加: テストモード専用モーションの開始 ---
     public void StartTestModeMotion()
     {
         StopAutoMotion();
@@ -167,7 +182,7 @@ public class HandVisualizer : MonoBehaviour
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            
+
             float t = Mathf.PingPong(elapsed, duration / 2f) / (duration / 2f);
             t = Mathf.SmoothStep(0, 1, t);
 
@@ -193,56 +208,52 @@ public class HandVisualizer : MonoBehaviour
         ResetAutoMotionState();
     }
 
-    // --- 新規追加: テストモード専用のお辞儀ルーチン ---
+    // ★変更: localRotation を直接書かず _testMpTargetRots に格納し、
+    //         LateUpdate() 経由で SDK の上書き後に適用する
     private IEnumerator TestMotionRoutine()
     {
-        isAutoMode = true; // 他の遅延反映などを止める
+        isAutoMode = true;
+        _isTestMotionActive = true;
 
-        float duration = 2.0f; // 2秒かけて往復
-        float elapsed = 0f;
-        
-        // 4本のMP関節のベースとなる回転を保存
+        // XR Hands SDK が LateUpdate() でボーンを確定させた後の値を取るため1フレーム待つ
+        yield return new WaitForEndOfFrame();
+
         Quaternion[] baseMpRots = new Quaternion[testMpJoints.Length];
+        _testMpTargetRots = new Quaternion[testMpJoints.Length];
+
         for (int i = 0; i < testMpJoints.Length; i++)
         {
-            if (testMpJoints[i] != null)
-            {
-                baseMpRots[i] = testMpJoints[i].localRotation;
-            }
+            baseMpRots[i] = testMpJoints[i] != null
+                ? testMpJoints[i].localRotation
+                : Quaternion.identity;
+            _testMpTargetRots[i] = baseMpRots[i];
         }
+
+        float duration = 2.0f;
+        float elapsed = 0f;
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            
+
             float t = Mathf.PingPong(elapsed, duration / 2f) / (duration / 2f);
             t = Mathf.SmoothStep(0, 1, t);
 
-            // MP関節の屈曲（お辞儀）
             float currentAngle = Mathf.Lerp(0, testFlexionAngle, t);
             Quaternion flexRot = Quaternion.AngleAxis(currentAngle, testFlexionAxis);
 
-            // 4本のMP関節に適用
             for (int i = 0; i < testMpJoints.Length; i++)
             {
-                if (testMpJoints[i] != null)
-                {
-                    testMpJoints[i].localRotation = baseMpRots[i] * flexRot;
-                }
+                // localRotation を直接書かず配列に格納するだけ
+                // → LateUpdate() が SDK の上書き後に実際の適用を行う
+                _testMpTargetRots[i] = baseMpRots[i] * flexRot;
             }
 
             yield return null;
         }
 
-        // 完了後に元の回転にリセット
-        for (int i = 0; i < testMpJoints.Length; i++)
-        {
-            if (testMpJoints[i] != null)
-            {
-                testMpJoints[i].localRotation = baseMpRots[i];
-            }
-        }
-
+        // モーション完了後にフラグを落とす（LateUpdate の適用も停止する）
+        _isTestMotionActive = false;
         ResetAutoMotionState();
     }
 
@@ -266,6 +277,7 @@ public class HandVisualizer : MonoBehaviour
         hasAutoMotionBaseRotation = false;
         autoMotionCoroutine = null;
         isAutoMode = false;
+        _isTestMotionActive = false; // ★追加: StopAutoMotion() 経由でも確実にリセット
     }
 
     public void ResetMotionDetection()
