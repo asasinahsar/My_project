@@ -1,6 +1,6 @@
 using System;
 using UnityEngine;
-using LSL; // LSL4Unityが必要
+using LSL;
 
 namespace UnityVirtual.LSL
 {
@@ -32,7 +32,7 @@ namespace UnityVirtual.LSL
 
         private void Update()
         {
-            // LSLストリームの解決と接続
+#if !UNITY_EDITOR
             if (inlet == null)
             {
                 var results = global::LSL.LSL.resolve_stream("type", streamType, 1, 0.0);
@@ -43,11 +43,11 @@ namespace UnityVirtual.LSL
                 return;
             }
 
-            // データの取得（最新のサンプルをすべてバッファに引き込む）
             while (inlet.pull_sample(sampleBuffer, 0.0) != 0.0)
             {
                 PushSample(sampleBuffer);
             }
+#endif
         }
 
         private void PushSample(float[] sample)
@@ -68,7 +68,9 @@ namespace UnityVirtual.LSL
 
         private void OnDestroy()
         {
+#if !UNITY_EDITOR
             inlet?.Dispose();
+#endif
         }
     }
 }
