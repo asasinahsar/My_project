@@ -35,7 +35,7 @@ public class HandVisualizer : MonoBehaviour
     [SerializeField] private Transform[] testMpJoints = new Transform[4]; // Index, Middle, Ring, Pinky のMP関節をアサイン
     [SerializeField] private Vector3 testFlexionAxis = Vector3.right;      // お辞儀の回転軸
     [SerializeField] private float testFlexionAngle = 90f;                 // お辞儀の最大角度
-
+　　[SerializeField] private MonoBehaviour xrHandSkeletonDriver;
     public Action OnMovementDetected;
     public Action<string> OnMarkerRequested; // LSLマーカー送出要求
 
@@ -208,20 +208,22 @@ public class HandVisualizer : MonoBehaviour
         ResetAutoMotionState();
     }
 
-    // ★変更: localRotation を直接書かず _testMpTargetRots に格納し、
-    //         LateUpdate() 経由で SDK の上書き後に適用する
     private IEnumerator TestMotionRoutine()
 {
     isAutoMode = true;
     _isTestMotionActive = true;
 
-    // ★修正: WaitForEndOfFrame()をAndroidで安全な2フレーム待ちに変更
+    // ★ XRHandSkeletonDriverを一時停止してSDKの上書きを止める
+    if (xrHandSkeletonDriver != null)
+        xrHandSkeletonDriver.enabled = false;
+
+    // 2フレーム待ってSDKの最後の書き込みを安定させる
     yield return null;
     yield return null;
 
+    // ベース回転を記録
     Quaternion[] baseMpRots = new Quaternion[testMpJoints.Length];
     _testMpTargetRots = new Quaternion[testMpJoints.Length];
-
     for (int i = 0; i < testMpJoints.Length; i++)
     {
         baseMpRots[i] = testMpJoints[i] != null
@@ -236,20 +238,30 @@ public class HandVisualizer : MonoBehaviour
     while (elapsed < duration)
     {
         elapsed += Time.deltaTime;
-
         float t = Mathf.PingPong(elapsed, duration / 2f) / (duration / 2f);
         t = Mathf.SmoothStep(0, 1, t);
-
         float currentAngle = Mathf.Lerp(0, testFlexionAngle, t);
         Quaternion flexRot = Quaternion.AngleAxis(currentAngle, testFlexionAxis);
 
         for (int i = 0; i < testMpJoints.Length; i++)
         {
-            _testMpTargetRots[i] = baseMpRots[i] * flexRot;
+            if (testMpJoints[i] != null)
+                testMpJoints[i].localRotation = baseMpRots[i] * flexRot; // 直接書いてOK（SDKが止まっているため）
         }
 
         yield return null;
     }
+
+    // モーション完了後にリセット＆SDKを再開
+    for (int i = 0; i < testMpJoints.Length; i++)
+    {
+        if (testMpJoints[i] != null)
+            testMpJoints[i].localRotation = baseMpRots[i];
+    }
+
+    // ★ XRHandSkeletonDriverを再有効化
+    if (xrHandSkeletonDriver != null)
+        xrHandSkeletonDriver.enabled = true;
 
     _isTestMotionActive = false;
     ResetAutoMotionState();
