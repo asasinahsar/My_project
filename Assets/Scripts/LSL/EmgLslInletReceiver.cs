@@ -6,7 +6,9 @@ namespace UnityVirtual.LSL
 {
     public class EmgLslInletReceiver : MonoBehaviour
     {
+#pragma warning disable CS0414
         [SerializeField] private string streamType = "EMG";
+#pragma warning restore CS0414
         [SerializeField] private int channelCount = 32;
         [SerializeField] private int sampleRateHz = 1000;
         [SerializeField] private int bufferSize = 4096;

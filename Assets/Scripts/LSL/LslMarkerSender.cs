@@ -5,8 +5,10 @@ namespace UnityVirtual.LSL
 {
     public class LslMarkerSender : MonoBehaviour, IMarkerSender
     {
+        #pragma warning disable CS0414
         [SerializeField] private string streamName = "Markers";
         [SerializeField] private string streamType = "Markers";
+        #pragma warning restore CS0414
 
         private StreamOutlet outlet;
         private string[] sample = new string[1];
