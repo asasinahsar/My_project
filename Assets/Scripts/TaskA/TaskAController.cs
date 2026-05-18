@@ -16,6 +16,11 @@ public class TaskAController : MonoBehaviour
     [Header("Settings")]
     public int trialsPerBlock = 20;
 
+    [Header("Stillness Detection (Task A)")]
+    [SerializeField] private float stillnessSpeedThreshold = 0.05f;
+    [SerializeField] private float stillnessDuration = 1.0f;
+    [SerializeField] private float preMotionWait = 10.0f;
+
     // 現在のブロック状態（0: sync, 1: async）
     private int currentBlockIndex = 0;
     public string CurrentCondition => currentBlockIndex == 0 ? "sync" : "async";
@@ -95,41 +100,51 @@ public class TaskAController : MonoBehaviour
 
         for (int trial = 1; trial <= trialsPerBlock; trial++)
         {
-            // 1. 試行間インターバル（2〜4秒ランダム）
-            float iti = UnityEngine.Random.Range(2.0f, 4.0f);
-            yield return new WaitForSeconds(iti);
+            // 1. 静止確認（速度 < stillnessSpeedThreshold が stillnessDuration 秒継続）
+            yield return StartCoroutine(WaitForStillness());
+
+            // 2. 静止確認後 preMotionWait 秒待機
+            yield return new WaitForSeconds(preMotionWait);
 
             float trialStartTime = Time.realtimeSinceStartup;
 
-            // 2. 試行開始マーカー送出
-            string markerPrefix = $"TrialStart_A_{CurrentCondition}_{trial}";
-            SendMarker(markerPrefix);
+            // 3. 試行開始マーカー送出
+            SendMarker($"TrialStart_A_{CurrentCondition}_{trial}");
 
-            // 3. 自動動作の選択とトリガー
-            // 【変更箇所】UnityEngine.Random.Range(0, 4) によるランダム選択を削除し、
-            // 常に CompoundMotion のみが実行されるように固定しました。
-            AutoMotionType motionType = AutoMotionType.CompoundMotion;
+            // 4. 自動屈曲開始（MotionOnset マーカーは HandVisualizer.OnMarkerRequested 経由で送出）
+            AutoMotionType motionType = AutoMotionType.IndexFingerFlexion;
             handVisualizer.StartAutoMotion(motionType);
 
-            float motionOnsetTime = Time.realtimeSinceStartup; // 実際のオンセットマーカーはHandVisualizerから飛ぶ
+            float motionOnsetTime = Time.realtimeSinceStartup;
 
-            // 4. 動作完了を待機（往復2秒）
+            // 5. 動作完了待機（往復 2 秒）
             yield return new WaitForSeconds(2.0f);
 
             float trialEndTime = Time.realtimeSinceStartup;
 
-            // 5. 試行終了マーカー送出
+            // 6. 試行終了マーカー送出
             SendMarker($"TrialEnd_A_{CurrentCondition}_{trial}");
 
-            // 6. CSVへのデータ記録
+            // 7. CSV ログ
             LogTrialData(trial, CurrentCondition, motionType.ToString(), trialStartTime, motionOnsetTime, trialEndTime, isExcludedBlock);
         }
 
-        Debug.Log($"[Task A] Block {CurrentCondition} Completed. Transitioning to Rest.");
+        Debug.Log($"[Task A] Block {CurrentCondition} Completed.");
         CompleteCurrentBlock();
-
-        // 20試行終わったらブロック間休憩へ
         ExperimentManager.Instance.ChangeState(ExperimentState.BlockRest);
+    }
+
+    private IEnumerator WaitForStillness()
+    {
+        float stillTimer = 0f;
+        while (stillTimer < stillnessDuration)
+        {
+            if (handVisualizer.CurrentSpeed < stillnessSpeedThreshold)
+                stillTimer += Time.deltaTime;
+            else
+                stillTimer = 0f;
+            yield return null;
+        }
     }
 
     private void LogTrialData(int trialNo, string condition, string motionType, float startTime, float onsetTime, float endTime, bool excluded)

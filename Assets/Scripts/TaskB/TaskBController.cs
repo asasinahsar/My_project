@@ -75,6 +75,8 @@ public class TaskBController : MonoBehaviour
     {
         if (state == ExperimentState.TaskB_Main)
         {
+            if (handVisualizer != null)
+                handVisualizer.EnableOnsetDetection = true;
             InitializeQuest();
             GenerateFixedTrials();
             StartCoroutine(TaskBMainRoutine());
@@ -169,6 +171,8 @@ public class TaskBController : MonoBehaviour
         }
 
         Debug.Log($"[Task B] Completed! Final Estimated τ_SoA: {QuestMean()}ms");
+        if (handVisualizer != null)
+            handVisualizer.EnableOnsetDetection = false;
         ExperimentManager.Instance.ChangeState(ExperimentState.Finished);
     }
 
@@ -186,6 +190,7 @@ public class TaskBController : MonoBehaviour
         OnSoAWindowClosed?.Invoke();
         if (handVisualizer != null)
         {
+            handVisualizer.EnableOnsetDetection = false;
             handVisualizer.delayMs = 0f;
             handVisualizer.ResetMotionDetection();
         }

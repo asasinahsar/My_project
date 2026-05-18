@@ -5,7 +5,7 @@ using UnityVirtual.Common; // RingBuffer用
 
 public enum AutoMotionType
 {
-    CompoundMotion
+    IndexFingerFlexion
 }
 
 public class HandVisualizer : MonoBehaviour
@@ -25,15 +25,22 @@ public class HandVisualizer : MonoBehaviour
     [Header("Onset Detection (Task B)")]
     [SerializeField] private float velocityThreshold = 0.05f;
 
-    [Header("Compound Motion Settings (Task A)")]
-    [SerializeField] private Vector3 flexionAxis = Vector3.right;
-    [SerializeField] private float flexionAngle = 45f;
-    [SerializeField] private Vector3 ulnarDeviationAxis = Vector3.forward;
-    [SerializeField] private float ulnarDeviationAngle = 20f;
+    [Header("Index Finger Joints (Task A)")]
+    [SerializeField] private Transform indexMCP;
+    [SerializeField] private Transform indexPIP;
+    [SerializeField] private Transform indexDIP;
+
+    [Header("Index Finger Flexion Settings (Task A)")]
+    [SerializeField] private Vector3 indexFlexionAxis = Vector3.right;
+    [SerializeField] private float indexFlexionAngle = 30f;
 
     [Header("Test Mode Settings (Wrist Flexion)")]
     [SerializeField] private Vector3 testWristFlexionAxis = Vector3.right;
     [SerializeField] private float testWristFlexionAngle = 45f;
+
+    [Header("Visibility Control")]
+    [SerializeField] private GameObject virtualHandRoot;
+    [SerializeField] private GameObject rightHandRoot;
 
     public Action OnMovementDetected;
     public Action<string> OnMarkerRequested;
@@ -44,8 +51,12 @@ public class HandVisualizer : MonoBehaviour
     private Coroutine autoMotionCoroutine;
     private Quaternion autoMotionBaseRotation;
     private bool hasAutoMotionBaseRotation = false;
+    private Quaternion _indexMcpBase;
+    private Quaternion _indexPipBase;
+    private Quaternion _indexDipBase;
 
-    private UnityEngine.XR.Hands.XRHandSkeletonDriver _skeletonDriver;
+    public float CurrentSpeed { get; private set; }
+    public bool EnableOnsetDetection { get; set; } = false;
 
     public class HandPose
     {
@@ -76,39 +87,24 @@ public class HandVisualizer : MonoBehaviour
         if (actualHandWrist != null)
             previousPosition = actualHandWrist.position;
 
-        // virtualHandWrist を起点に親・子の順で XRHandSkeletonDriver を探す
-        if (virtualHandWrist != null)
-        {
-            _skeletonDriver = virtualHandWrist
-                .GetComponentInParent<UnityEngine.XR.Hands.XRHandSkeletonDriver>();
+        // 右手ハンドトラッキングメッシュを常時非表示
+        if (rightHandRoot != null)
+            rightHandRoot.SetActive(false);
 
-            if (_skeletonDriver == null)
-                _skeletonDriver = virtualHandWrist
-                    .GetComponentInChildren<UnityEngine.XR.Hands.XRHandSkeletonDriver>();
-        }
+        // 仮想左手はタスク開始まで非表示
+        if (virtualHandRoot != null)
+            virtualHandRoot.SetActive(false);
 
-        // 見つからなければシーン全体から Left 側を探す
-        if (_skeletonDriver == null)
-        {
-            var all = FindObjectsByType<UnityEngine.XR.Hands.XRHandSkeletonDriver>(
-                FindObjectsInactive.Include);
-            foreach (var d in all)
-            {
-                if (d.gameObject.name.Contains("L_") ||
-                    d.gameObject.name.ToLower().Contains("left"))
-                {
-                    _skeletonDriver = d;
-                    Debug.Log("[HandVisualizer] フォールバック取得: " + d.gameObject.name);
-                    break;
-                }
-            }
-        }
-
-        if (_skeletonDriver != null)
-            Debug.Log("[HandVisualizer] XRHandSkeletonDriver 取得成功: "
-                + _skeletonDriver.gameObject.name);
+        if (ExperimentManager.Instance != null)
+            ExperimentManager.Instance.OnStateChanged += HandleStateChanged;
         else
-            Debug.LogWarning("[HandVisualizer] XRHandSkeletonDriver が見つかりません。");
+            Debug.LogWarning("[HandVisualizer] ExperimentManager.Instance が null です。手の表示制御が無効です。");
+    }
+
+    private void OnDestroy()
+    {
+        if (ExperimentManager.Instance != null)
+            ExperimentManager.Instance.OnStateChanged -= HandleStateChanged;
     }
 
     private void Update()
@@ -117,8 +113,8 @@ public class HandVisualizer : MonoBehaviour
 
         float currentTime = Time.realtimeSinceStartup;
 
-        float speed = Vector3.Distance(actualHandWrist.position, previousPosition) / Time.deltaTime;
-        if (!isAutoMode && !hasDetectedMotionThisTrial && speed > velocityThreshold)
+        CurrentSpeed = Vector3.Distance(actualHandWrist.position, previousPosition) / Time.deltaTime;
+        if (EnableOnsetDetection && !isAutoMode && !hasDetectedMotionThisTrial && CurrentSpeed > velocityThreshold)
         {
             hasDetectedMotionThisTrial = true;
             OnMovementDetected?.Invoke();
@@ -159,32 +155,26 @@ public class HandVisualizer : MonoBehaviour
     // ----------------------------------------------------------------
 
     private void ApplyDelayedPose()
-{
-    HandPose delayedPose = poseBuffer.GetAtDelay(delayMs);
-    if (delayedPose == null) return;
-
-    virtualHandWrist.position = delayedPose.wristPosition;
-
-    // ★修正：world rotation → localRotation に変換して適用
-    virtualHandWrist.localRotation = virtualHandWrist.parent != null
-        ? Quaternion.Inverse(virtualHandWrist.parent.rotation) * delayedPose.wristRotation
-        : delayedPose.wristRotation;
-
-    if (virtualJoints != null && delayedPose.jointPositions != null)
     {
-        for (int i = 0; i < virtualJoints.Length; i++)
+        HandPose delayedPose = poseBuffer.GetAtDelay(delayMs);
+        if (delayedPose == null) return;
+
+        // world 座標系で統一（position・rotation ともに world 直接代入）
+        virtualHandWrist.position = delayedPose.wristPosition;
+        virtualHandWrist.rotation = delayedPose.wristRotation;
+
+        if (virtualJoints != null)
         {
-            if (virtualJoints[i] != null && i < delayedPose.jointRotations.Length)
+            for (int i = 0; i < virtualJoints.Length; i++)
             {
-                virtualJoints[i].position = delayedPose.jointPositions[i];
-                virtualJoints[i].localRotation = virtualJoints[i].parent != null
-                    ? Quaternion.Inverse(virtualJoints[i].parent.rotation)
-                      * delayedPose.jointRotations[i]
-                    : delayedPose.jointRotations[i];
+                if (virtualJoints[i] != null && i < delayedPose.jointRotations.Length)
+                {
+                    // position は親階層から自動計算されるため設定しない
+                    virtualJoints[i].rotation = delayedPose.jointRotations[i];
+                }
             }
         }
     }
-}
 
     // ----------------------------------------------------------------
     // Public API
@@ -207,6 +197,11 @@ public class HandVisualizer : MonoBehaviour
             autoMotionBaseRotation = virtualHandWrist.localRotation;
             hasAutoMotionBaseRotation = true;
         }
+
+        // 中断時の復帰用に人差し指ボーンのベース姿勢を保存
+        if (indexMCP != null) _indexMcpBase = indexMCP.localRotation;
+        if (indexPIP != null) _indexPipBase = indexPIP.localRotation;
+        if (indexDIP != null) _indexDipBase = indexDIP.localRotation;
 
         autoMotionCoroutine = StartCoroutine(AutoMotionRoutine(motionType));
     }
@@ -240,15 +235,16 @@ public class HandVisualizer : MonoBehaviour
     {
         isAutoMode = true;
 
-        if (_skeletonDriver != null)
-            _skeletonDriver.enabled = false;
+        if (indexMCP == null || indexPIP == null || indexDIP == null)
+        {
+            Debug.LogWarning("[HandVisualizer] 人差し指ボーン（indexMCP/PIP/DIP）が未設定です。Inspector を確認してください。");
+            ResetAutoMotionState();
+            yield break;
+        }
 
-        // SDK停止を1フレーム待って反映
-        yield return null;
-
-        Quaternion baseRot = virtualHandWrist != null
-            ? virtualHandWrist.localRotation
-            : Quaternion.identity;
+        Quaternion mcpBase = indexMCP.localRotation;
+        Quaternion pipBase = indexPIP.localRotation;
+        Quaternion dipBase = indexDIP.localRotation;
 
         OnMarkerRequested?.Invoke($"MotionOnset_A_{motionType}");
 
@@ -262,23 +258,20 @@ public class HandVisualizer : MonoBehaviour
             float t = Mathf.PingPong(elapsed, duration / 2f) / (duration / 2f);
             t = Mathf.SmoothStep(0, 1, t);
 
-            float currentFlexion = Mathf.Lerp(0, flexionAngle, t);
-            float currentUlnar   = Mathf.Lerp(0, ulnarDeviationAngle, t);
+            float angle = Mathf.Lerp(0, indexFlexionAngle, t);
+            Quaternion flexDelta = Quaternion.AngleAxis(angle, indexFlexionAxis);
 
-            Quaternion flexRot  = Quaternion.AngleAxis(currentFlexion, flexionAxis);
-            Quaternion ulnarRot = Quaternion.AngleAxis(currentUlnar, ulnarDeviationAxis);
-
-            if (virtualHandWrist != null)
-                virtualHandWrist.localRotation = baseRot * flexRot * ulnarRot;
+            indexMCP.localRotation = mcpBase * flexDelta;
+            indexPIP.localRotation = pipBase * flexDelta;
+            indexDIP.localRotation = dipBase * flexDelta;
 
             yield return null;
         }
 
-        if (virtualHandWrist != null)
-            virtualHandWrist.localRotation = baseRot;
-
-        if (_skeletonDriver != null)
-            _skeletonDriver.enabled = true;
+        // 自然終了時：指ボーンを元の姿勢に復帰
+        indexMCP.localRotation = mcpBase;
+        indexPIP.localRotation = pipBase;
+        indexDIP.localRotation = dipBase;
 
         hasAutoMotionBaseRotation = false;
         ResetAutoMotionState();
@@ -289,19 +282,12 @@ public class HandVisualizer : MonoBehaviour
         Debug.Log("[HandVisualizer] TestMotionRoutine 開始");
         isAutoMode = true;
 
-        if (_skeletonDriver != null)
-            _skeletonDriver.enabled = false;
-
         if (virtualHandWrist == null)
         {
             Debug.LogWarning("[HandVisualizer] virtualHandWrist が未設定です。");
-            if (_skeletonDriver != null) _skeletonDriver.enabled = true;
             ResetAutoMotionState();
             yield break;
         }
-
-        // SDK停止を1フレーム待って反映
-        yield return null;
 
         Quaternion baseRot = virtualHandWrist.localRotation;
         Debug.Log("[HandVisualizer] baseRot = " + baseRot.eulerAngles);
@@ -327,11 +313,30 @@ public class HandVisualizer : MonoBehaviour
         virtualHandWrist.localRotation = baseRot;
         hasAutoMotionBaseRotation = false;
 
-        if (_skeletonDriver != null)
-            _skeletonDriver.enabled = true;
-
         Debug.Log("[HandVisualizer] TestMotionRoutine 終了");
         ResetAutoMotionState();
+    }
+
+    // ----------------------------------------------------------------
+    // State Change Handling
+    // ----------------------------------------------------------------
+
+    private void HandleStateChanged(ExperimentState state)
+    {
+        if (virtualHandRoot != null)
+            virtualHandRoot.SetActive(ShouldShowHand(state));
+    }
+
+    private static bool ShouldShowHand(ExperimentState state)
+    {
+        return state == ExperimentState.TaskA_Induction
+            || state == ExperimentState.TaskA_VASCheck
+            || state == ExperimentState.TaskA_Baseline
+            || state == ExperimentState.TaskA_Main
+            || state == ExperimentState.TaskB_Induction
+            || state == ExperimentState.TaskB_VASCheck
+            || state == ExperimentState.TaskB_Baseline
+            || state == ExperimentState.TaskB_Main;
     }
 
     // ----------------------------------------------------------------
@@ -343,8 +348,13 @@ public class HandVisualizer : MonoBehaviour
         if (hasAutoMotionBaseRotation && virtualHandWrist != null)
             virtualHandWrist.localRotation = autoMotionBaseRotation;
 
-        if (_skeletonDriver != null)
-            _skeletonDriver.enabled = true;
+        // StopAutoMotion による中断時：人差し指ボーンをベース姿勢に復帰
+        if (hasAutoMotionBaseRotation)
+        {
+            if (indexMCP != null) indexMCP.localRotation = _indexMcpBase;
+            if (indexPIP != null) indexPIP.localRotation = _indexPipBase;
+            if (indexDIP != null) indexDIP.localRotation = _indexDipBase;
+        }
 
         hasAutoMotionBaseRotation = false;
         autoMotionCoroutine = null;

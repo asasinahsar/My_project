@@ -130,15 +130,6 @@ VHI_Manager
 HandVisualizer（スクリプト） ← actualHandWrist / virtualHandWrist アサイン
 
 
-### Inspector アサイン（HandVisualizer）
-
-| スロット | アサイン先 |
-|---------|----------|
-| Actual Hand Wrist | `LeftHandAndroidXRVisual/LeftHand` |
-| Virtual Hand Wrist | `LeftHandAndroidXRVisual/LeftHand` |
-| Actual Joints | 未アサイン（現在空） |
-| Virtual Joints | 未アサイン（現在空） |
-
 ---
 
 ## LSL マーカー仕様
