@@ -11,7 +11,7 @@ EMG motor overflow・筋シナジーによる SoO/SoA の客観的測定
 
 ## 研究概要
 
-統合失調症の中核症状である SoA（主体感）・SoO（身体所有感）障害を、従来の主観的アンケートに依らず **sEMG の不随意反応（motor overflow）** で客観的に定量化する。Meta Quest スタンドアロン環境で VHI（Virtual Hand Illusion）を誘導し、32ch sEMG × LSL 同期によりバイオマーカーを計測する。
+統合失調症の中核症状である SoA（主体感）・SoO（身体所有感）障害を、従来の主観的アンケートに依らず **sEMG の不随意反応（motor overflow）** で客観的に定量化する。Meta Quest スタンドアロン環境で VHI（Virtual Hand Illusion）を誘導し、2ch sEMG × LSL 同期によりバイオマーカーを計測する。
 
 ---
 
@@ -70,7 +70,7 @@ Assets/Scripts/
 ### Task A｜SoO定量化（motor overflow）
 
 - **内容：** VHI成立後、左手人差し指 MCP・PIP・DIP を最大30°自動屈曲
-- **試行フロー：** 手の静止確認（速度 < 5cm/s、2秒継続）→ 10秒待機 → 自動屈曲（2秒）
+- **試行フロー：** 手の静止確認（速度 < 5cm/s、2秒継続）→ 10秒待機 → 自動屈曲（1秒）
 - **ブロック：** sync 20試行 / async 20試行（計40試行）
 - **主要指標：** MOA（motor overflow amplitude）・MOL（latency）・NSS（筋シナジー類似度）
 
