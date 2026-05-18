@@ -1,95 +1,177 @@
-# VHI実験システム (Task A: SoO計測 & Task B: SoA計測)
+# VHI Experiment — Unity Project
 
-本プロジェクトは、Meta Quest 3を用いたハンドトラッキングVR環境において、バーチャルハンドイリュージョン（VHI）を誘発し、身体所有感（SoO）と主体感（SoA）を客観的・定量的に計測するための実験システムです。
+**バーチャルハンドイリュージョンを用いた自己感覚の計算論的定量化**  
+EMG motor overflow・筋シナジーによる SoO/SoA の客観的測定
 
-## 1. 実験概要
-
-### Task A：身体所有感 (Sense of Ownership) の計測
-- **目的**: 視覚フィードバック（自動動作）に対する SoO を、EMG motor overflow 等を用いて客観的に測定する。
-- **条件**: 
-  - `sync`: 仮想手を実際の手の位置に表示。
-  - `async`: 仮想手を実際の手から2cm遠位（Z方向）にオフセットして表示。
-- **動作**: 4種類のプロシージャルアニメーション（手首伸展/屈曲、回内/回外）をランダムに再生。
-
-### Task B：主体感 (Sense of Agency) の計測
-- **目的**: 随意運動に対する映像遅延（Δt）を挿入し、QUEST法（適応的階段法）を用いて SoA の減衰閾値を推定する。
-- **計測**: 35試行のQUEST推定 + 20試行の固定遅延確認試行（計55試行）。
-- **トリガー**: ハンドトラッキングの速度ベースによる運動開始（Kinematic Onset）検知。
+**所属：** 東京科学大学 小池研究室  
+**期間：** 2026年5月〜6月（6週間）  
+**ブランチ：** `copilot_space`
 
 ---
 
-## 2. 動作環境
+## 研究概要
 
-- **Unity**: Unity 6 (6000.4.3f1)
-- **Render Pipeline**: Universal Render Pipeline (URP)
-- **XR SDK**: Meta XR SDK (Oculus Integration)
-- **Communication**: Lab Streaming Layer (LSL) / `LSL4Unity` 使用
-- **Hardware**: Meta Quest 3 (PC接続 Link/AirLink 推奨)
-- **Input**: ハンドトラッキング（コントローラー不要）
+統合失調症の中核症状である SoA（主体感）・SoO（身体所有感）障害を、従来の主観的アンケートに依らず **sEMG の不随意反応（motor overflow）** で客観的に定量化する。Meta Quest スタンドアロン環境で VHI（Virtual Hand Illusion）を誘導し、32ch sEMG × LSL 同期によりバイオマーカーを計測する。
 
 ---
 
-## 3. シーン構成とオブジェクト階層
+## システム構成
 
-`MainExperiment` シーンでは、以下の構造に従ってオブジェクトを配置します。
+Meta Quest（スタンドアロン、PC不要）
+├─ 左手ハンドトラッキング → Task A 自動運動 / Task B 遅延ミラーリング
+├─ 右手コントローラー → UI操作（ボタンのみ、レイキャスト不使用）
+└─ LSL受信（Wi-Fi） → sEMG同期マーカー記録
 
-### [Systems]
-- `ExperimentManager`: 実験全体のステートマシン管理。
-- `VHIInductionController`: 各タスク前の誘導フェーズ（タイマー）管理。
+sEMG アンプ（左前腕 2ch, 1000Hz+）
+└─ LSL送信（Wi-Fi）→ Meta Quest
 
-### [XR]
-- `XR Origin (XR Rig)`: Quest 3 のカメラおよびトラッキング基盤。
-- `LeftVirtualHandRoot`: 被験者に見せる仮想手。`HandVisualizer.cs` をアタッチ。
-  - **制約**: 左手は実験対象のため、UI操作コンポーネント（Ray/Poke）を無効化すること。
-
-### [LSL]
-- `LSLMarkerSender`: 実験イベント（TrialStart, Onset等）をLSL経由で外部へ送信。
-
-### [TaskA_SoO] / [TaskB_SoA]
-- 各タスクの試行シーケンスを制御する `TaskAController` および `TaskBController` を配置。
-
-### [UI] (2系統分離)
-- `ExperimentUI`: **実験者用 (PC画面)**。`Screen Space - Overlay`。進行管理とデバッグ用。
-- `VASInputUI`: **被験者用 (VR内)**。`World Space Canvas`。右手（非実験手）でのみ操作。
-
-### [Data]
-- `VASRecorder`: VAS回答値に特化したCSV記録。
 
 ---
 
-## 4. スクリプトの役割 (Obsidian Map)
+## 動作モード
 
-| ファイル名 | フォルダ | 役割 |
-|:---|:---|:---|
-| `ExperimentManager.cs` | Common | 実験全体の進行（State）を一元管理 |
-| `HandVisualizer.cs` | Common | 仮想手の描画、遅延適用、運動検知、自動動作 |
-| `RingBuffer.cs` | Common | GCフリーの姿勢データバッファ（VRのカクつき防止） |
-| `VHIInductionController.cs` | Common | VHI誘導（筆なぞり等）の時間制御 |
-| `TaskAController.cs` | TaskA | Task A（SoO）のブロック・試行制御 |
-| `TaskBController.cs` | TaskB | Task B（SoA）のQUEST法エンジンと試行制御 |
-| `LSLMarkerSender.cs` | LSL | LSLストリームへのマーカー文字列送出 |
-| `VASInputUI.cs` | UI | VR空間内のWorld Space Canvas制御 |
-| `ExperimentUI.cs` | UI | PCミラー画面上の管理UI・キーボード入力受付 |
-| `VASRecorder.cs` | Data | VAS値の独立CSVロギング |
+| モード | LSL | 用途 |
+|-------|-----|------|
+| **本番モード** | あり | 完全実験フロー・全データ記録 |
+| **テストモード** | なし（デバッグログ） | 動作確認専用・短縮フロー |
+
+アプリ起動時の選択画面で切り替える。
 
 ---
 
-## 5. セットアップと実行手順
+## スクリプト構成
 
-1. **手の関節紐付け**: 
-   `HandVisualizer` の `Actual Joints` と `Virtual Joints` 配列に、トラッキング対象と仮想手の関節を**同じ順番で**ドラッグ&ドロップします。
-2. **UI操作制限**: 
-   左手プレハブから `XR Ray Interactor` 等を削除し、被験者が左手でUIに触れられないようにします。右手にのみ操作権限を与えます。
-3. **LSLの準備**: 
-   外部の筋電図記録ソフト等で "UnityMarkers" ストリームが受信可能な状態にします。
-4. **データの保存先**: 
-   実験データ（CSV）は以下に保存されます：  
-   `Application.persistentDataPath/SessionData/yyyyMMdd/`
+Assets/Scripts/
+├─ Core/
+│ ├─ ExperimentManager.cs # ステート管理（Idle→TaskA→TaskB→Finished）
+│ └─ HandVisualizer.cs # 実手トラッキング・仮想手制御・自動モーション
+├─ Tasks/
+│ ├─ TaskAController.cs # Task A（受動運動：人差し指自動屈曲）
+│ ├─ TaskBController.cs # Task B（能動運動：QUEST法＋Δt遅延）
+│ └─ VHIInductionController.cs # VHI誘導（筆なぞり、sync/async切り替え）
+├─ LSL/
+│ ├─ IMarkerSender.cs # マーカー送出インターフェース
+│ ├─ LslMarkerSender.cs # LSL送出（本番モード）
+│ ├─ DebugMarkerSender.cs # デバッグログ出力（テストモード）
+│ ├─ MarkerSenderRouter.cs # 本番/テスト切り替えルーター
+│ └─ EmgLslInletReceiver.cs # sEMG LSLストリーム受信
+├─ UI/
+│ ├─ ExperimentUI.cs # 実験UI管理
+│ ├─ VASInputUI.cs # VAS入力（スティック操作）
+│ └─ TaskInstructionUI.cs # タスク教示画面
+└─ Utilities/
+└─ RingBuffer.cs # 手のポーズ記録バッファ（Task B遅延用）
+
 
 ---
 
-## 6. 注意事項
+## 実験タスク
 
-- 実験中は **右手のみ** でUIを操作してください。
-- Task B の Onset 検知感度は `HandVisualizer` の `Velocity Threshold` で調整可能です。
-- VASの値が 3 未満の場合、システムは自動的に再誘導またはブロック除外の判定を行います。
+### Task A｜SoO定量化（motor overflow）
+
+- **内容：** VHI成立後、左手人差し指 MCP・PIP・DIP を最大30°自動屈曲
+- **試行フロー：** 手の静止確認（速度 < 5cm/s、2秒継続）→ 10秒待機 → 自動屈曲（2秒）
+- **ブロック：** sync 20試行 / async 20試行（計40試行）
+- **主要指標：** MOA（motor overflow amplitude）・MOL（latency）・NSS（筋シナジー類似度）
+
+### Task B｜SoA定量化（遅延ミラーリング）
+
+- **内容：** 被験者の随意左手首伸展にΔt遅延を挿入してバーチャルハンドを描画
+- **応答：** Aボタン（SoA崩壊 = Yes）/ Bボタン（SoA維持 = No）でQUEST法を駆動
+- **試行数：** QUEST 35試行 + 固定Δt確認 20試行（計55試行）
+- **主要指標：** τ_SoA（崩壊閾値）・PRI（運動準備一貫性）・SCR（シナジー変容率）
+
+---
+
+## 操作系
+
+| ボタン | 機能 |
+|--------|------|
+| 右スティック上下 | 選択移動・VAS値変更 |
+| Aボタン / 右トリガー | 決定・次へ / Task B「SoA崩壊」 |
+| Bボタン | 戻る / Task B「SoA維持」 |
+
+- 左手 Interactor（Poke / Near-Far）は**実験全体を通じて無効化**
+- 右手はコントローラーモデルのみ表示（ハンドトラッキングモデル非表示）
+- LineVisual（ビーム）は全て非表示
+
+---
+
+## Unity セットアップ
+
+### 必要パッケージ
+
+- XR Interaction Toolkit 3.x
+- XR Hands
+- Meta XR SDK（OpenXR）
+- LSL4Unity（Lab Streaming Layer）
+
+### ビルド設定
+
+- **Platform：** Android
+- **Target Device：** Meta Quest 3 / 3S
+- **Scripting Backend：** IL2CPP
+- **Target Architecture：** ARM64
+
+### Hierarchy 構成（関連部分）
+
+XR
+Complete XR Origin Set Up Hands Variant
+Camera Offset
+Left Hand ← Interactor無効化済み
+Right Hand ← UI操作用Interactor
+Right Controller ← コントローラーモデル
+LeftHandAndroidXRVisual ← 左手メッシュ（使用中）
+LeftHand ← XRHandSkeletonDriver 配置場所
+LeftHandQuestVisual ← 非アクティブ（Quest専用）
+RightHandAndroidXRVisual ← 非アクティブ（コントローラー表示のため）
+Hand Visualizer ← 非アクティブ（重複メッシュのため）
+VHI_Manager
+HandVisualizer（スクリプト） ← actualHandWrist / virtualHandWrist アサイン
+
+
+### Inspector アサイン（HandVisualizer）
+
+| スロット | アサイン先 |
+|---------|----------|
+| Actual Hand Wrist | `LeftHandAndroidXRVisual/LeftHand` |
+| Virtual Hand Wrist | `LeftHandAndroidXRVisual/LeftHand` |
+| Actual Joints | 未アサイン（現在空） |
+| Virtual Joints | 未アサイン（現在空） |
+
+---
+
+## LSL マーカー仕様
+
+| マーカー文字列 | タイミング |
+|-------------|----------|
+| `MotionOnset_A_CompoundMotion` | Task A 自動運動開始直前（`_skeletonDriver.enabled=false` 直後） |
+| `SoA_Yes_Trial{n}_Dt{delta_t}ms` | Task B「SoA崩壊」申告時 |
+| `SoA_No_Trial{n}_Dt{delta_t}ms` | Task B「SoA維持」申告時 |
+| `Baseline_Start` | ベースラインEMG記録開始 |
+| `Block_Start_{condition}` | ブロック開始（sync / async） |
+
+---
+
+## 既知の問題・未解決事項
+
+| 問題 | 状況 | 推定原因 |
+|------|------|---------|
+| `virtualHandWrist` の正しいアサイン先が未確定 | 調査中 | `ApplyDelayedPose()` の world/local 座標系ミスマッチ |
+| 人差し指ボーン一覧未確認 | `LeftHand` 配下を要確認 | Task A 実装の前提条件 |
+
+---
+
+## 開発ルール
+
+- コード生成前に**必ず実装内容を説明し許可を取る**
+- 既存コードの削除は理由を明記する
+- コード変更後は **Unity エディタ側の操作手順**をステップで提示する
+- `Debug.Log` は `[ClassName]` プレフィックス必須
+- 参照ドキュメント：`Experiment.md`（実験計画書）、`CLAUDE.md`（開発規約）
+
+---
+
+## ライセンス
+
+東京科学大学 小池研究室 内部プロジェクト。外部公開不可。
