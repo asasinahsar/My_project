@@ -12,12 +12,10 @@ public class TestModeController : MonoBehaviour
 
     private Coroutine loopCoroutine;
 
-    // テストメニューのTaskAボタンから呼び出される
     public void StartTestTaskA()
     {
         Debug.Log("[TestMode] Task A Test Button Clicked!");
 
-        // UIの切り替え（メニューを隠して、実行中パネルを出す）
         if (testMenuPanel != null) testMenuPanel.SetActive(false);
         if (testRunningPanel != null) testRunningPanel.SetActive(true);
 
@@ -25,7 +23,6 @@ public class TestModeController : MonoBehaviour
         loopCoroutine = StartCoroutine(TestLoopRoutine());
     }
 
-    // テスト停止時（テスト実行中パネルの「停止」ボタンから呼び出される）
     public void StopTest()
     {
         Debug.Log("[TestMode] Test Stopped.");
@@ -40,25 +37,23 @@ public class TestModeController : MonoBehaviour
             handVisualizer.StopAutoMotion();
         }
 
-        // UIの切り替え（実行中パネルを隠して、メニューに戻す）
         if (testRunningPanel != null) testRunningPanel.SetActive(false);
         if (testMenuPanel != null) testMenuPanel.SetActive(true);
     }
 
     private IEnumerator TestLoopRoutine()
     {
-        Debug.Log("[TestMode] Starting Task A Preview Loop (10s interval)");
-        
+        Debug.Log("[TestMode] Starting Task A Preview Loop (初回10秒待機後に開始)");
+
         while (true)
         {
+            // ★修正：先に10秒待ってからモーション実行
+            yield return new WaitForSeconds(10f);
+
             if (handVisualizer != null)
             {
-                // 2秒間のモーションを実行
                 handVisualizer.StartTestModeMotion();
             }
-            
-            // 10秒待機（モーション稼働2秒 ＋ まっすぐ待機8秒）
-            yield return new WaitForSeconds(10f);
         }
     }
 }
