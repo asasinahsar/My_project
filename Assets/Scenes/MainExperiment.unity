@@ -957,7 +957,7 @@ MonoBehaviour:
   handVisualizer: {fileID: 1234352776}
   testMenuPanel: {fileID: 1525457913}
   testRunningPanel: {fileID: 1247963529}
-  virtualHandRoot: {fileID: 0}
+  virtualHandRoot: {fileID: 1433921989}
 --- !u!1 &270334411
 GameObject:
   m_ObjectHideFlags: 0
@@ -3248,7 +3248,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2746079481507640640, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_Enabled
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2746079481507640640, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_CastShadows
@@ -3439,7 +3439,15 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5949727424041121515, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_MetaQuestLeftHandMesh
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5949727424041121515, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
       propertyPath: m_AndroidXRRightHandMesh
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 5949727424041121515, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
+      propertyPath: m_MetaQuestRightHandMesh
       value: 
       objectReference: {fileID: 0}
     - target: {fileID: 6281536608356757770, guid: 77e7c27b2c5525e4aa8cc9f99d654486, type: 3}
@@ -4981,7 +4989,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 77757455427707707, guid: c596c6eccbc90fe48949f87e583ce552, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 77757455427707707, guid: c596c6eccbc90fe48949f87e583ce552, type: 3}
       propertyPath: m_CastShadows

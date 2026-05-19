@@ -70,7 +70,7 @@ public class TestModeController : MonoBehaviour
 
             if (handVisualizer != null)
             {
-                handVisualizer.StartTestModeMotion();
+                handVisualizer.StartAutoMotion(AutoMotionType.IndexFingerFlexion);
             }
         }
     }
