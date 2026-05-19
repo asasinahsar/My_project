@@ -60,8 +60,8 @@ public class VHIInductionController : MonoBehaviour
     {
         string condition = taskAController.CurrentCondition;
         
-        // 空間的オフセットの適用（syncなら0cm, asyncなら2cm遠位）
-        handVisualizer.SetAsyncOffset(condition == "async");
+        // 時間的非同期：async時500ms遅延、sync時0ms
+        handVisualizer.delayMs = (condition == "async") ? 500f : 0f;
         
         SendMarker($"InductionStart_A_{condition}");
         Debug.Log($"[VHI Induction] Task A Phase 1 (Brush Stroking) Started. Condition: {condition}");
@@ -131,7 +131,6 @@ public class VHIInductionController : MonoBehaviour
         StopAllCoroutines();
         if (handVisualizer != null)
         {
-            handVisualizer.SetAsyncOffset(false);
             handVisualizer.delayMs = 0f;
             handVisualizer.isAutoMode = false;
         }

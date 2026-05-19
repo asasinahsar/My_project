@@ -78,8 +78,36 @@ public class HandVisualizer : MonoBehaviour
 
     private void Awake()
     {
+        // Inspector 未設定の場合、子Transformを深さ優先順で自動収集（親→子の正しい順序）
+        if ((actualJoints == null || actualJoints.Length == 0) && actualHandWrist != null)
+        {
+            actualJoints = CollectChildTransforms(actualHandWrist);
+            Debug.Log($"[HandVisualizer] actualJoints を自動検出: {actualJoints.Length} 個");
+        }
+        if ((virtualJoints == null || virtualJoints.Length == 0) && virtualHandWrist != null)
+        {
+            virtualJoints = CollectChildTransforms(virtualHandWrist);
+            Debug.Log($"[HandVisualizer] virtualJoints を自動検出: {virtualJoints.Length} 個");
+        }
+
         int jointCount = (actualJoints != null) ? actualJoints.Length : 0;
         poseBuffer = new RingBuffer<HandPose>(1000, () => new HandPose(jointCount));
+    }
+
+    private static Transform[] CollectChildTransforms(Transform root)
+    {
+        var list = new System.Collections.Generic.List<Transform>();
+        CollectRecursive(root, list);
+        return list.ToArray();
+    }
+
+    private static void CollectRecursive(Transform t, System.Collections.Generic.List<Transform> list)
+    {
+        foreach (Transform child in t)
+        {
+            list.Add(child);
+            CollectRecursive(child, list);
+        }
     }
 
     private void Start()
@@ -144,10 +172,7 @@ public class HandVisualizer : MonoBehaviour
 
         poseBuffer.Commit(currentTime);
 
-        if (!isAutoMode)
-        {
-            ApplyDelayedPose();
-        }
+        ApplyDelayedPose();
     }
 
     // ----------------------------------------------------------------
@@ -162,6 +187,8 @@ public class HandVisualizer : MonoBehaviour
         // world 座標系で統一（position・rotation ともに world 直接代入）
         virtualHandWrist.position = delayedPose.wristPosition;
         virtualHandWrist.rotation = delayedPose.wristRotation;
+
+        if (isAutoMode) return; // 自動屈曲中はジョイントをスキップ（AutoMotionRoutineが制御）
 
         if (virtualJoints != null)
         {
@@ -179,14 +206,6 @@ public class HandVisualizer : MonoBehaviour
     // ----------------------------------------------------------------
     // Public API
     // ----------------------------------------------------------------
-
-    public void SetAsyncOffset(bool applyOffset)
-    {
-        if (virtualHandWrist == null) return;
-        virtualHandWrist.localPosition = applyOffset
-            ? new Vector3(0, 0, 0.02f)
-            : Vector3.zero;
-    }
 
     public void StartAutoMotion(AutoMotionType motionType)
     {

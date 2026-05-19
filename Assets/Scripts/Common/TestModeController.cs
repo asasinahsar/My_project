@@ -10,6 +10,9 @@ public class TestModeController : MonoBehaviour
     [SerializeField] private GameObject testMenuPanel;
     [SerializeField] private GameObject testRunningPanel;
 
+    [Header("Hand Visibility")]
+    [SerializeField] private GameObject virtualHandRoot;
+
     private Coroutine loopCoroutine;
 
     public void StartTestTaskA()
@@ -18,9 +21,22 @@ public class TestModeController : MonoBehaviour
 
         if (testMenuPanel != null) testMenuPanel.SetActive(false);
         if (testRunningPanel != null) testRunningPanel.SetActive(true);
+        if (virtualHandRoot != null) virtualHandRoot.SetActive(true);
 
         if (loopCoroutine != null) StopCoroutine(loopCoroutine);
         loopCoroutine = StartCoroutine(TestLoopRoutine());
+    }
+
+    public void StartTestTaskB()
+    {
+        Debug.Log("[TestMode] Task B Test Button Clicked!");
+
+        if (testMenuPanel != null) testMenuPanel.SetActive(false);
+        if (testRunningPanel != null) testRunningPanel.SetActive(true);
+        if (virtualHandRoot != null) virtualHandRoot.SetActive(true);
+
+        if (handVisualizer != null)
+            handVisualizer.delayMs = 500f;
     }
 
     public void StopTest()
@@ -35,8 +51,10 @@ public class TestModeController : MonoBehaviour
         if (handVisualizer != null)
         {
             handVisualizer.StopAutoMotion();
+            handVisualizer.delayMs = 0f;
         }
 
+        if (virtualHandRoot != null) virtualHandRoot.SetActive(false);
         if (testRunningPanel != null) testRunningPanel.SetActive(false);
         if (testMenuPanel != null) testMenuPanel.SetActive(true);
     }

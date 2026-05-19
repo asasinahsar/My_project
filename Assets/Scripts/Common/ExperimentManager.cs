@@ -1,6 +1,8 @@
 using UnityEngine;
 using System;
+using System.Collections;
 using LSL;
+using TMPro;
 using UnityVirtual.LSL;
 using UnityEngine.Serialization;
 
@@ -49,9 +51,13 @@ public class ExperimentManager : MonoBehaviour
     [SerializeField] private GameObject blockRestPanel;
     [SerializeField] private GameObject finishedPanel;
 
+    [Header("Block Rest UI")]
+    [SerializeField] private TextMeshProUGUI blockRestTimerText;
+
     private IMarkerSender markerSender;
     private MarkerSenderRouter markerSenderRouter;
     private bool hasLoggedMissingStartMenu = false;
+    private Coroutine blockRestCoroutine;
 
     public ExperimentState CurrentState { get; private set; } = ExperimentState.Idle;
 
@@ -100,6 +106,8 @@ public class ExperimentManager : MonoBehaviour
                 break;
             case ExperimentState.BlockRest:
                 SendMarker("RestStart");
+                if (blockRestCoroutine != null) StopCoroutine(blockRestCoroutine);
+                blockRestCoroutine = StartCoroutine(BlockRestRoutine());
                 break;
             case ExperimentState.Finished:
                 SendMarker("ExpEnd");
@@ -268,8 +276,31 @@ public class ExperimentManager : MonoBehaviour
         }
     }
 
+    private IEnumerator BlockRestRoutine()
+    {
+        float duration = 30f;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            int remaining = Mathf.CeilToInt(duration - elapsed);
+            if (blockRestTimerText != null)
+                blockRestTimerText.text = $"残り: {remaining} 秒";
+            yield return null;
+        }
+        if (blockRestTimerText != null)
+            blockRestTimerText.text = "準備ができたら次へ進みます...";
+        blockRestCoroutine = null;
+        AdvanceState();
+    }
+
     private void AbortActiveTasks()
     {
+        if (blockRestCoroutine != null)
+        {
+            StopCoroutine(blockRestCoroutine);
+            blockRestCoroutine = null;
+        }
         if (vhiInductionController != null)
         {
             vhiInductionController.AbortInduction();
