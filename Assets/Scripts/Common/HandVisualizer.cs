@@ -92,6 +92,55 @@ public class HandVisualizer : MonoBehaviour
 
         int jointCount = (actualJoints != null) ? actualJoints.Length : 0;
         poseBuffer = new RingBuffer<HandPose>(1000, () => new HandPose(jointCount));
+
+        // joints 対応確認用デバッグログ（確認後に削除予定）
+        int compareLen = Mathf.Min(
+            actualJoints != null ? actualJoints.Length : 0,
+            virtualJoints != null ? virtualJoints.Length : 0
+        );
+        for (int i = 0; i < compareLen; i++)
+        {
+            string actualName = actualJoints[i] != null ? actualJoints[i].name : "null";
+            string virtualName = virtualJoints[i] != null ? virtualJoints[i].name : "null";
+            string match = (actualName == virtualName) ? "OK" : "MISMATCH";
+            Debug.Log($"[Joints] [{i:D2}] actual: {actualName} | virtual: {virtualName} {match}");
+        }
+
+        // SkinnedMeshRenderer bones 参照確認（確認後に削除予定）
+        var virtualSmr = virtualHandWrist != null ? virtualHandWrist.GetComponentInChildren<SkinnedMeshRenderer>() : null;
+        if (virtualSmr != null)
+        {
+            Debug.Log($"[Bones] virtual SMR bones count: {virtualSmr.bones.Length}");
+            for (int i = 0; i < virtualSmr.bones.Length; i++)
+            {
+                var b = virtualSmr.bones[i];
+                if (b == null)
+                {
+                    Debug.Log($"[Bones] [{i:D2}] null");
+                    continue;
+                }
+                bool inVirtual = IsUnder(b, virtualHandWrist);
+                bool inActual = IsUnder(b, actualHandWrist);
+                string location = inVirtual ? "in_virtual" : (inActual ? "IN_ACTUAL_BUG" : "other");
+                Debug.Log($"[Bones] [{i:D2}] {b.name} ({location})");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("[Bones] virtual SkinnedMeshRenderer が見つかりません");
+        }
+    }
+
+    private static bool IsUnder(Transform child, Transform ancestor)
+    {
+        if (child == null || ancestor == null) return false;
+        var t = child;
+        while (t != null)
+        {
+            if (t == ancestor) return true;
+            t = t.parent;
+        }
+        return false;
     }
 
     private static Transform[] CollectChildTransforms(Transform root)
@@ -159,8 +208,8 @@ public class HandVisualizer : MonoBehaviour
             {
                 if (actualJoints[i] != null)
                 {
-                    currentPose.jointPositions[i] = actualJoints[i].position;
-                    currentPose.jointRotations[i] = actualJoints[i].rotation;
+                    currentPose.jointPositions[i] = actualJoints[i].localPosition;
+                    currentPose.jointRotations[i] = actualJoints[i].localRotation;
                 }
                 else
                 {
@@ -196,8 +245,9 @@ public class HandVisualizer : MonoBehaviour
             {
                 if (virtualJoints[i] != null && i < delayedPose.jointRotations.Length)
                 {
-                    // position は親階層から自動計算されるため設定しない
-                    virtualJoints[i].rotation = delayedPose.jointRotations[i];
+                    // XRHandSkeletonDriver は localPosition も毎フレーム更新するため両方同期
+                    virtualJoints[i].localPosition = delayedPose.jointPositions[i];
+                    virtualJoints[i].localRotation = delayedPose.jointRotations[i];
                 }
             }
         }

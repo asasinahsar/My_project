@@ -1,19 +1,40 @@
 # CLAUDE.md
 
+このファイルは **AI（Claude Code）向けのルールと指示** だけを記載する。
+進捗・履歴・確定仕様はここに書かない（後述の役割分担を参照）。
+
+---
+
+## ファイルの役割分担（最重要）
+
+新しい `.md` ファイルは作らない。情報は必ず以下のいずれかに入れる。
+
+| ファイル | 役割 | 更新の仕方 |
+|---------|------|-----------|
+| `CLAUDE.md`（本ファイル） | AI向けのルール・読み込み指示 | ルールが変わったときだけ |
+| `Experiment.md` | 実験計画・確定した仕様 | 仕様が確定・変更されたとき |
+| `STATUS.md` | 現在地（残りTo-Do・未解決事項） | 作業の区切りで**上書き**して最新化 |
+| `LOG.md` | 履歴（完了Phase・解決済み問題） | 完了するたびに**追記**（過去は消さない） |
+| `README.md` | 人間向けの概要・Hierarchy構成等 | 構成が変わったとき |
+
+迷ったときの判断基準：
+- 不変の事実・仕様 → `Experiment.md`
+- これからやること・今困っていること → `STATUS.md`
+- 終わったこと → `LOG.md`
+
+---
+
 ## ブランチ
 - 作業ブランチ：`copilot_space`
 - 常にこのブランチを参照・編集すること
-
 
 ## Role and Language
 - 回答はすべて日本語で行う
 - 簡潔かつ正確な技術的アドバイスを優先する
 
-
 ## Communication Rules
 - 実装開始前に要件が曖昧な場合・設計の選択肢が複数ある場合は**必ず確認をとること**、勝手に進めない
 - 指示されたタスクと直接関係のないコード生成・変更は行わない
-
 
 ## Implementation Policy
 - 専門用語は省略せず、ドキュメント・既存コードの記載通りに使用する
@@ -23,21 +44,26 @@
 - 削除した場合は必ずその理由を明記する
 - コードを生成しようとするときは**事前に許可をとる**（何をしようとしているか説明してから）
 
-
 ## Coding Style
 - 可読性・保守性を優先する
 - 実装選択の理由・メリット・デメリットを簡潔に説明する
 
-
-## 参照ドキュメント
-- 実験全体の概要：`Experiment.md`（リポジトリ内）
-- 本ファイル（CLAUDE.md）を常に参照する
-
+---
 
 ## セッション管理
 - コンテキスト50%で /compact を実行すること
-- 確定した設計決定は都度このファイルに追記すること
+- **確定した設計決定** → `Experiment.md` に反映する
+- **完了したPhase・解決した問題** → `LOG.md` に追記する
+- **作業の区切り** → `STATUS.md` を最新状態に上書きする
+- このファイル（CLAUDE.md）には進捗を書かない
 
+## 起動時の読み込み順
+新セッション開始時は必ず以下の順に読み込むこと：
+1. `CLAUDE.md`（本ファイル＝ルール）
+2. `STATUS.md`（現在地・今やること）
+3. `Experiment.md`（実験計画・確定仕様）
+4. 必要に応じて `LOG.md`（過去の経緯を確認したいとき）
+5. 作業対象の `.cs` ファイル
 
 ## 読み込み禁止ファイル・フォルダ（トークン節約のため必ず除外）
 以下は**絶対に読まない**こと。glob や Find でも対象外にする。
@@ -49,111 +75,35 @@
 - 拡張子が `.fbx`、`.png`、`.jpg`、`.wav`、`.mp3`、`.asset`、`.meta` のファイル
 - `*.dll`、`*.pdb`
 
-読んでよいのは `Assets/Scripts/` 配下の `.cs` ファイル、および `CLAUDE.md`・`Experiment.md`・`README.md` のみ。
+読んでよいのは `Assets/Scripts/` 配下の `.cs` ファイル、および
+`CLAUDE.md`・`Experiment.md`・`STATUS.md`・`LOG.md`・`README.md` のみ。
 
-
-## 起動時の読み込み順
-新セッション開始時は必ず以下の順に読み込むこと：
-1. `CLAUDE.md`（本ファイル）
-2. `Experiment.md`
-3. `README.md`
-4. 作業対象の `.cs` ファイル
-
+---
 
 ## スクリプト構成（Assets/Scripts/）
+```
 Common/
-ExperimentManager.cs 実験ステート管理
-HandVisualizer.cs 実手トラッキング・仮想手制御・自動モーション
-TestModeController.cs テストモード制御
-VHIInductionController.cs VHI誘導フロー制御
-RingBuffer.cs リングバッファ（遅延用）
+  ExperimentManager.cs     実験ステート管理
+  HandVisualizer.cs        実手トラッキング・仮想手制御・自動モーション
+  TestModeController.cs     テストモード制御
+  VHIInductionController.cs VHI誘導フロー制御
+  RingBuffer.cs            リングバッファ（遅延用）
 Data/
-VASRecorder.cs VAS記録
+  VASRecorder.cs           VAS記録
 LSL/
-DebugMarkerSender.cs
-EmgLslInletReceiver.cs
-IMarkerSender.cs
-LslClockSynchronizer.cs
-LslHealthMonitor.cs
-LslMarkerSender.cs
-MarkerSenderRouter.cs
+  DebugMarkerSender.cs
+  EmgLslInletReceiver.cs
+  IMarkerSender.cs
+  LslClockSynchronizer.cs
+  LslHealthMonitor.cs
+  LslMarkerSender.cs
+  MarkerSenderRouter.cs
 TaskA/
-TaskAController.cs Task A フロー制御
+  TaskAController.cs       Task A フロー制御
 TaskB/
-TaskBController.cs Task B フロー制御
+  TaskBController.cs       Task B フロー制御
 UI/
-ExperimentUI.cs
-TaskInstructionUI.cs
-VASInputUI.cs
-
-
-
-## 確定済み設計決定
-
-### Task A 設計
-- **方式：案A（トラッキング同期あり）**
-  - XRHandSkeletonDriverによるリアルタイムトラッキングを維持したまま、LateUpdate差分加算方式で人差し指のみ自動屈曲
-- **自動屈曲対象：** 左手人差し指 MCP・PIP・DIP（最大30°）
-- **AutoMotionType：** `IndexFingerFlexion`
-- **静止確認条件：** 速度 < 5 cm/s が **1秒継続** → 10秒待機 → 自動屈曲（2秒）
-- **onset検出（速度ベース）：** Task B 専用。Task A 中は無効化
-
-### async条件（コントロール）
-- **時間的非同期 Δt = 500ms 固定遅延** を採用
-- 空間的オフセット（SetAsyncOffset）は廃止
-- 根拠：SoO・SoAをともに有意に崩壊（Shimada et al., 2016）、Task B のリングバッファ遅延機構を流用可能、hypothesis awareness リスクが低い
-
-### Unity Hierarchy 構成
-- **actualHandWrist：** 元の `LeftHandAndroidXRVisual`（メッシュ非表示・トラッキング駆動のまま）
-- **virtualHandWrist：** 複製した `VirtualLeftHand`（XRHandSkeletonDriver 削除済み）
-- 両者は**別オブジェクト**（同一オブジェクトへの閉ループを解消済み）
-- `LeftHandQuestVisual` / `RightHandQuestVisual`：削除済み（Android OpenXR ビルドでは不要）
-
-### sEMG
-- **チャンネル数：2ch**
-
-### 練習ブロック
-- **廃止**（ExperimentState.Practice および関連UI・遷移ロジックは削除予定）
-
-### ブロック間休憩
-- **30秒手指運動教示UI＋タイマー**を実装予定（Phase 5）
-
-
-## 完了済みPhase
-
-| Phase | 内容 |
-|-------|------|
-| P1 構造修正 | VirtualLeftHand分離・ApplyDelayedPose座標系修正（world統一）・_skeletonDriverインフラ全削除 |
-| P2 人差し指屈曲 | AutoMotionType→IndexFingerFlexion・MCP/PIP/DIP 30°屈曲（LateUpdate差分加算）・Inspectorスロット追加 |
-| P3 Task Aフロー | 静止確認（<5cm/s・1秒継続）・10秒待機→屈曲サイクル・onset検出のTask B専用化 |
-
-
-## 残りのTo-Do
-
-### Phase 4：async条件の時間的非同期化
-- P4-1：`SetAsyncOffset()` を `HandVisualizer.cs` から削除
-- P4-2：`VHIInductionController` でasync時 `delayMs = 500f`、sync時 `0f` を設定
-- P4-3：`isAutoMode` ガードの見直し（async時もApplyDelayedPose()が動作するよう調整）
-
-### Phase 5：BlockRest実装
-- P5-1：30秒手指運動教示UIの表示
-- P5-2：30秒タイマー＋完了後自動遷移（`ExperimentManager.cs`）
-
-### Phase 6：仕様クリーンアップ
-- P6-1：Practice関連ステート・UIの削除（`ExperimentManager.cs`）
-- P6-2：`Experiment.md` チャンネル数表記を2chに統一
-- P6-3：`Experiment.md` 静止確認「2秒」→「1秒」に修正
-- P6-4：`Experiment.md` async条件を時間的非同期Δt=500msに書き換え
-- P6-5：`Experiment.md` 練習ブロック記述を削除
-- P6-6：`README.md` 「既知の問題」セクションを更新（解決済み項目を削除）
-
-
-## 既知の問題・未解決事項（2026-05-18時点）
-
-| # | 問題 | 状態 |
-|---|------|------|
-| 1 | virtualHandWristのworld-position直接代入 | ✅ P1-3で解決済み |
-| 2 | 親指付け根のボーン変形（world position書き込み） | ✅ P1-4で解決済み |
-| 3 | XRHandSkeletonDriverとのUpdate競合 | ✅ P1-5（分離）で解決済み |
-| 4 | SetAsyncOffsetのworld Z軸固定問題 | → P4-1で廃止予定 |
-| 5 | isAutoModeガードによるApplyDelayedPose無効化 | → P4-3で対処予定 |
+  ExperimentUI.cs
+  TaskInstructionUI.cs
+  VASInputUI.cs
+```
