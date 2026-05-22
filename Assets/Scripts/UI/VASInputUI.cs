@@ -57,22 +57,9 @@ public class VASInputUI : MonoBehaviour
 
     private void HandleStateChanged(ExperimentState state)
     {
-        if (state == ExperimentState.TaskA_VASCheck)
-        {
-            currentTaskForVAS = "A";
-            vasTitleText.text = "自分の手のように感じましたか？\n(0:全く感じない - 10:非常に強く感じる)";
-            ShowVASPanel();
-        }
-        else if (state == ExperimentState.TaskB_VASCheck)
-        {
-            currentTaskForVAS = "B";
-            vasTitleText.text = "自分で動かしているように感じましたか？\n(0:全く感じない - 10:非常に強く感じる)";
-            ShowVASPanel();
-        }
-        else
-        {
-            HideAll();
-        }
+        // v5.3: TaskA_VASCheck / TaskB_VASCheck 削除に伴い VAS パネル表示分岐を廃止。
+        // SoA パネルは TaskBController.OnSoAWindowOpened 経路で表示される（こちらは Phase E で再設計予定）。
+        HideAll();
     }
 
     private void ShowVASPanel()

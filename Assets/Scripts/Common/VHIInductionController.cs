@@ -70,10 +70,10 @@ public class VHIInductionController : MonoBehaviour
         yield return new WaitForSeconds(120f);
 
         SendMarker($"InductionEnd_A_{condition}");
-        Debug.Log("[VHI Induction] Task A Phase 1 Ended. Transitioning to VAS Check.");
+        // v5.3: VAS 全廃に伴い VASCheck をスキップして直接 Baseline へ
+        Debug.Log("[VHI Induction] Task A Phase 1 Ended. Transitioning to Baseline.");
 
-        // VAS確認ステートへ自動遷移
-        ExperimentManager.Instance.ChangeState(ExperimentState.TaskA_VASCheck);
+        ExperimentManager.Instance.ChangeState(ExperimentState.TaskA_Baseline);
     }
 
     private IEnumerator TaskBInductionRoutine()
@@ -95,10 +95,10 @@ public class VHIInductionController : MonoBehaviour
 
         SendMarker("ActiveMovementEnd_B");
         SendMarker("InductionEnd_B");
-        Debug.Log("[VHI Induction] Task B Induction Ended. Transitioning to VAS Check.");
+        // v5.3: VAS 全廃に伴い VASCheck をスキップして直接 Baseline へ
+        Debug.Log("[VHI Induction] Task B Induction Ended. Transitioning to Baseline.");
 
-        // VAS確認ステートへ自動遷移
-        ExperimentManager.Instance.ChangeState(ExperimentState.TaskB_VASCheck);
+        ExperimentManager.Instance.ChangeState(ExperimentState.TaskB_Baseline);
     }
 
     private IEnumerator BaselineRoutine(string task, string condition)

@@ -173,7 +173,8 @@ public class TaskBController : MonoBehaviour
         Debug.Log($"[Task B] Completed! Final Estimated τ_SoA: {QuestMean()}ms");
         if (handVisualizer != null)
             handVisualizer.EnableOnsetDetection = false;
-        ExperimentManager.Instance.ChangeState(ExperimentState.Finished);
+        // v5.3: Task B → Task A の順序。完了通知で Rest を経由して Task A へ遷移。
+        ExperimentManager.Instance.NotifyTaskBCompleted();
     }
 
     // UIやキーボードから応答をセットするためのパブリックメソッド

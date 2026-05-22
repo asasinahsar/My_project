@@ -398,12 +398,11 @@ public class HandVisualizer : MonoBehaviour
 
     private static bool ShouldShowHand(ExperimentState state)
     {
+        // v5.3: VASCheck 削除に伴い行削除
         return state == ExperimentState.TaskA_Induction
-            || state == ExperimentState.TaskA_VASCheck
             || state == ExperimentState.TaskA_Baseline
             || state == ExperimentState.TaskA_Main
             || state == ExperimentState.TaskB_Induction
-            || state == ExperimentState.TaskB_VASCheck
             || state == ExperimentState.TaskB_Baseline
             || state == ExperimentState.TaskB_Main;
     }

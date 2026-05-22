@@ -9,15 +9,15 @@ using UnityEngine.Serialization;
 public enum ExperimentState
 {
     Idle,
-    Consent,
-    Practice,           // 練習ブロック（TaskA×5試行 + TaskB×5試行）
+    // v5.3: Consent は VR 外でアナログ実施するため削除
+    Practice,           // 練習ブロック（v5.3: Task B のみ・Phase G で整理予定）
     TaskA_Induction,    // Task A VHI誘導（筆なぞり受動、3分）
-    TaskA_VASCheck,     // Task A VAS確認
+    // v5.3: TaskA_VASCheck は VAS 全廃に伴い削除
     TaskA_Baseline,     // Task A 安静ベースライン（30秒）
     TaskA_Main,         // Task A 計測（40試行）
-    BlockRest,          // ブロック間休憩（5分）
+    BlockRest,          // ブロック間休憩
     TaskB_Induction,    // Task B VHI誘導（筆なぞり1分 + 慣らし随意運動1分）
-    TaskB_VASCheck,     // Task B VAS確認
+    // v5.3: TaskB_VASCheck は VAS 全廃に伴い削除
     TaskB_Baseline,     // Task B 安静ベースライン（30秒）
     TaskB_Main,         // Task B 計測（55試行）
     Finished,
@@ -44,7 +44,7 @@ public class ExperimentManager : MonoBehaviour
 
     [Header("UI Panels (State Based)")]
     [SerializeField] private GameObject idlePanel;
-    [SerializeField] private GameObject consentPanel;
+    // v5.3: consentPanel は Consent ステート削除に伴い削除
     [SerializeField] private GameObject practicePanel;
     [SerializeField] private GameObject taskAPanel;
     [SerializeField] private GameObject taskBPanel;
@@ -58,6 +58,7 @@ public class ExperimentManager : MonoBehaviour
     private MarkerSenderRouter markerSenderRouter;
     private bool hasLoggedMissingStartMenu = false;
     private Coroutine blockRestCoroutine;
+    private bool taskBCompletedFlag = false;
 
     public ExperimentState CurrentState { get; private set; } = ExperimentState.Idle;
 
@@ -81,6 +82,7 @@ public class ExperimentManager : MonoBehaviour
 
     private void Start()
     {
+        taskBCompletedFlag = false;
         if (startMenuPanel != null)
         {
             ChangeState(ExperimentState.StartMenu);
@@ -134,7 +136,8 @@ public class ExperimentManager : MonoBehaviour
 
     public void StartExperiment()
     {
-        SwitchState(ExperimentState.Consent);
+        // v5.3: Consent ステート削除に伴い、Practice から開始
+        SwitchState(ExperimentState.Practice);
     }
 
     public void EvaluateTaskAVAS(int vasValue, string condition)
@@ -190,7 +193,8 @@ public class ExperimentManager : MonoBehaviour
                 Debug.LogWarning("[ExperimentManager] Task B VAS < 3 after retry. Excluding Block.");
                 SendMarker("BlockExcluded_B");
                 taskBRetryCount = 0;
-                ChangeState(ExperimentState.Finished);
+                // v5.3: 順序反転後は除外でも Task B 終了扱いで Task A へ。
+                NotifyTaskBCompleted();
             }
         }
     }
@@ -200,27 +204,130 @@ public class ExperimentManager : MonoBehaviour
         switch (CurrentState)
         {
             case ExperimentState.Idle:
-                ChangeState(ExperimentState.Consent);
-                break;
-            case ExperimentState.Consent:
+                // v5.3: Consent 削除に伴い直接 Practice へ
                 ChangeState(ExperimentState.Practice);
                 break;
             case ExperimentState.Practice:
-                ChangeState(ExperimentState.TaskA_Induction);
+                // v5.3: Task B → Task A の順序
+                ChangeState(ExperimentState.TaskB_Induction);
                 break;
             case ExperimentState.BlockRest:
-                if (taskAController != null && taskAController.HasRemainingBlocks)
+                // v5.3: Task B 完了後の Rest → Task A へ。Task A 内 Rest → 次ブロック or Finished。
+                if (taskBCompletedFlag)
                 {
-                    ChangeState(ExperimentState.TaskA_Induction);
+                    if (taskAController != null && taskAController.HasRemainingBlocks)
+                    {
+                        ChangeState(ExperimentState.TaskA_Induction);
+                    }
+                    else
+                    {
+                        ChangeState(ExperimentState.Finished);
+                    }
                 }
                 else
                 {
-                    ChangeState(ExperimentState.TaskB_Induction);
+                    // Phase D で Task B 内の async/sync 2 ブロック構造が入るまでは通常通らない経路。
+                    // 暫定で Task A 開始にフォールバック（順序反転を維持）。
+                    ChangeState(ExperimentState.TaskA_Induction);
                 }
                 break;
             default:
                 Debug.Log("[ExperimentManager] AdvanceState ignored for current phase.");
                 break;
+        }
+    }
+
+    // v5.3: Task B 完了通知。Task A への Rest を経由して Task A に遷移するためのフック。
+    public void NotifyTaskBCompleted()
+    {
+        taskBCompletedFlag = true;
+        ChangeState(ExperimentState.BlockRest);
+    }
+
+    // v5.3 Phase A.5: 全パネルからの「次へ」ボタン。フロー定義に基づき次のフェーズへ。
+    public void SkipCurrentPhase()
+    {
+        var next = GetNextState(CurrentState);
+        if (!next.HasValue)
+        {
+            Debug.Log($"[ExperimentManager] No next phase from {CurrentState}");
+            return;
+        }
+
+        // TaskB_Main をスキップする場合は完了扱いで Task A に流すため flag を立てる
+        if (CurrentState == ExperimentState.TaskB_Main)
+        {
+            taskBCompletedFlag = true;
+        }
+
+        SendMarker($"PhaseSkipped_{CurrentState}");
+        AbortActiveTasks();
+        ChangeState(next.Value);
+    }
+
+    // v5.3 Phase A.5: 全パネルからの「戻る」ボタン。フロー定義の逆方向へ。
+    public void GoBackPhase()
+    {
+        var prev = GetPreviousState(CurrentState);
+        if (!prev.HasValue)
+        {
+            Debug.Log($"[ExperimentManager] No previous phase from {CurrentState}");
+            return;
+        }
+
+        // Task B 系に戻るときは Task B 完了フラグをリセット
+        if (prev.Value == ExperimentState.TaskB_Induction
+            || prev.Value == ExperimentState.TaskB_Baseline
+            || prev.Value == ExperimentState.TaskB_Main)
+        {
+            taskBCompletedFlag = false;
+        }
+
+        SendMarker($"PhaseBack_{CurrentState}");
+        AbortActiveTasks();
+        ChangeState(prev.Value);
+    }
+
+    private ExperimentState? GetNextState(ExperimentState state)
+    {
+        switch (state)
+        {
+            case ExperimentState.Idle: return ExperimentState.Practice;
+            case ExperimentState.Practice: return ExperimentState.TaskB_Induction;
+            case ExperimentState.TaskB_Induction: return ExperimentState.TaskB_Baseline;
+            case ExperimentState.TaskB_Baseline: return ExperimentState.TaskB_Main;
+            case ExperimentState.TaskB_Main: return ExperimentState.BlockRest;
+            case ExperimentState.BlockRest:
+                if (taskBCompletedFlag)
+                {
+                    if (taskAController != null && taskAController.HasRemainingBlocks)
+                        return ExperimentState.TaskA_Induction;
+                    return ExperimentState.Finished;
+                }
+                return ExperimentState.TaskA_Induction;
+            case ExperimentState.TaskA_Induction: return ExperimentState.TaskA_Baseline;
+            case ExperimentState.TaskA_Baseline: return ExperimentState.TaskA_Main;
+            case ExperimentState.TaskA_Main: return ExperimentState.BlockRest;
+            default: return null; // StartMenu/TestMenu/ExperimentMenu/Finished は対象外
+        }
+    }
+
+    private ExperimentState? GetPreviousState(ExperimentState state)
+    {
+        switch (state)
+        {
+            case ExperimentState.Practice: return ExperimentState.Idle;
+            case ExperimentState.TaskB_Induction: return ExperimentState.Practice;
+            case ExperimentState.TaskB_Baseline: return ExperimentState.TaskB_Induction;
+            case ExperimentState.TaskB_Main: return ExperimentState.TaskB_Baseline;
+            case ExperimentState.BlockRest:
+                // TaskB 完了済みなら直前は TaskA_Main（A 内ブロック間）、未完了なら TaskB_Main
+                return taskBCompletedFlag ? ExperimentState.TaskA_Main : ExperimentState.TaskB_Main;
+            case ExperimentState.TaskA_Induction: return ExperimentState.BlockRest;
+            case ExperimentState.TaskA_Baseline: return ExperimentState.TaskA_Induction;
+            case ExperimentState.TaskA_Main: return ExperimentState.TaskA_Baseline;
+            case ExperimentState.Finished: return ExperimentState.TaskA_Main;
+            default: return null; // Idle/StartMenu/TestMenu/ExperimentMenu は対象外
         }
     }
 
@@ -260,7 +367,7 @@ public class ExperimentManager : MonoBehaviour
         {
             SetPanelActive(idlePanel, state == ExperimentState.Idle);
         }
-        SetPanelActive(consentPanel, state == ExperimentState.Consent);
+        // v5.3: consentPanel は Consent ステート削除に伴い削除
         SetPanelActive(practicePanel, state == ExperimentState.Practice);
         SetPanelActive(taskAPanel, IsTaskAState(state));
         SetPanelActive(taskBPanel, IsTaskBState(state));
@@ -318,13 +425,19 @@ public class ExperimentManager : MonoBehaviour
     private void SwitchState(ExperimentState targetState)
     {
         AbortActiveTasks();
+        // v5.3: メニュー画面へ戻る際は実験フラグをリセット（再実行時の整合性確保）。
+        if (targetState == ExperimentState.StartMenu
+            || targetState == ExperimentState.TestMenu
+            || targetState == ExperimentState.ExperimentMenu)
+        {
+            taskBCompletedFlag = false;
+        }
         ChangeState(targetState);
     }
 
     private static bool IsTaskAState(ExperimentState state)
     {
         return state == ExperimentState.TaskA_Induction
-            || state == ExperimentState.TaskA_VASCheck
             || state == ExperimentState.TaskA_Baseline
             || state == ExperimentState.TaskA_Main;
     }
@@ -332,7 +445,6 @@ public class ExperimentManager : MonoBehaviour
     private static bool IsTaskBState(ExperimentState state)
     {
         return state == ExperimentState.TaskB_Induction
-            || state == ExperimentState.TaskB_VASCheck
             || state == ExperimentState.TaskB_Baseline
             || state == ExperimentState.TaskB_Main;
     }
