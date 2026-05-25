@@ -88,7 +88,7 @@ public class TaskAController : MonoBehaviour
         }
         else if (state == ExperimentState.TaskA_Main)
         {
-            isExcludedBlock = false; // VAS判定による除外フラグがあればここで受け取る設計も可能
+            isExcludedBlock = false; // v5.3 Phase B: VAS 判定除外は廃止。Phase D で sync/async 除外フックとして再利用候補。
             blockCompletionRecorded = false;
             StartCoroutine(TaskAMainRoutine());
         }
@@ -153,6 +153,8 @@ public class TaskAController : MonoBehaviour
         File.AppendAllText(logFilePath, logLine);
     }
 
+    // v5.3 Phase B: VAS 判定による除外フックだったが、VAS 全廃で呼び出し元なし。
+    // Phase D で sync/async 構造を入れる際に再利用される可能性があるため残置。
     public void MarkCurrentBlockExcluded()
     {
         isExcludedBlock = true;

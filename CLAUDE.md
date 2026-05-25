@@ -88,16 +88,11 @@ Common/
   TestModeController.cs     テストモード制御
   VHIInductionController.cs VHI誘導フロー制御
   RingBuffer.cs            リングバッファ（遅延用）
-Data/
-  VASRecorder.cs           VAS記録
 LSL/
-  DebugMarkerSender.cs
-  EmgLslInletReceiver.cs
-  IMarkerSender.cs
-  LslClockSynchronizer.cs
-  LslHealthMonitor.cs
-  LslMarkerSender.cs
-  MarkerSenderRouter.cs
+  IMarkerSender.cs         マーカー送信インターフェース
+  LslMarkerSender.cs       本番用：LSL Outlet 経由でマーカー送信（実機ビルド時のみ）
+  DebugMarkerSender.cs     テスト用：Console にログ出力
+  MarkerSenderRouter.cs    本番/テストの切替ルーター
 TaskA/
   TaskAController.cs       Task A フロー制御
 TaskB/
@@ -105,5 +100,5 @@ TaskB/
 UI/
   ExperimentUI.cs
   TaskInstructionUI.cs
-  VASInputUI.cs
+  VASInputUI.cs            SoA 応答 UI（クラス名は Phase E でリネーム検討）
 ```

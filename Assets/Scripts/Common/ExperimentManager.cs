@@ -59,13 +59,14 @@ public class ExperimentManager : MonoBehaviour
     private bool hasLoggedMissingStartMenu = false;
     private Coroutine blockRestCoroutine;
     private bool taskBCompletedFlag = false;
+    // v5.3 Phase A.5 補正: BlockRest 戻る先の判定用。TaskA_Main/TaskB_Main からの BlockRest 流入時のみ更新。
+    private ExperimentState lastStateBeforeBlockRest = ExperimentState.TaskB_Main;
 
     public ExperimentState CurrentState { get; private set; } = ExperimentState.Idle;
 
     public event Action<ExperimentState> OnStateChanged;
 
-    private int taskARetryCount = 0;
-    private int taskBRetryCount = 0;
+    // v5.3 Phase B: taskARetryCount / taskBRetryCount は VAS リトライ用だったため削除。
 
     private void Awake()
     {
@@ -83,6 +84,7 @@ public class ExperimentManager : MonoBehaviour
     private void Start()
     {
         taskBCompletedFlag = false;
+        lastStateBeforeBlockRest = ExperimentState.TaskB_Main;
         if (startMenuPanel != null)
         {
             ChangeState(ExperimentState.StartMenu);
@@ -96,6 +98,15 @@ public class ExperimentManager : MonoBehaviour
     public void ChangeState(ExperimentState newState)
     {
         if (CurrentState == newState) return;
+
+        // v5.3 Phase A.5 補正: BlockRest に「実タスクから」流入する時のみ直前状態を記録。
+        // GoBackPhase 経由（TaskA_Induction → BlockRest 等）では記録を上書きしないため、
+        // 元々の BlockRest 流入経路（TaskB_Main → BlockRest 等）が保持される。
+        if (newState == ExperimentState.BlockRest
+            && (CurrentState == ExperimentState.TaskA_Main || CurrentState == ExperimentState.TaskB_Main))
+        {
+            lastStateBeforeBlockRest = CurrentState;
+        }
 
         CurrentState = newState;
         Debug.Log($"[ExperimentManager] State Transition -> {newState}");
@@ -140,64 +151,8 @@ public class ExperimentManager : MonoBehaviour
         SwitchState(ExperimentState.Practice);
     }
 
-    public void EvaluateTaskAVAS(int vasValue, string condition)
-    {
-        SendMarker($"VAS_A_{condition}_{vasValue}");
-
-        if (vasValue >= 3)
-        {
-            taskARetryCount = 0;
-            ChangeState(ExperimentState.TaskA_Baseline);
-        }
-        else
-        {
-            if (taskARetryCount < 1)
-            {
-                taskARetryCount++;
-                Debug.Log($"[ExperimentManager] Task A VAS < 3. Retrying Induction (Retry: {taskARetryCount})");
-                ChangeState(ExperimentState.TaskA_Induction);
-            }
-            else
-            {
-                Debug.LogWarning("[ExperimentManager] Task A VAS < 3 after retry. Excluding Block.");
-                SendMarker($"BlockExcluded_A_{condition}");
-                if (taskAController != null)
-                {
-                    taskAController.MarkCurrentBlockExcluded();
-                }
-                taskARetryCount = 0;
-                ChangeState(ExperimentState.BlockRest);
-            }
-        }
-    }
-
-    public void EvaluateTaskBVAS(int vasValue)
-    {
-        SendMarker($"VAS_B_{vasValue}");
-
-        if (vasValue >= 3)
-        {
-            taskBRetryCount = 0;
-            ChangeState(ExperimentState.TaskB_Baseline);
-        }
-        else
-        {
-            if (taskBRetryCount < 1)
-            {
-                taskBRetryCount++;
-                Debug.Log($"[ExperimentManager] Task B VAS < 3. Retrying Induction (Retry: {taskBRetryCount})");
-                ChangeState(ExperimentState.TaskB_Induction);
-            }
-            else
-            {
-                Debug.LogWarning("[ExperimentManager] Task B VAS < 3 after retry. Excluding Block.");
-                SendMarker("BlockExcluded_B");
-                taskBRetryCount = 0;
-                // v5.3: 順序反転後は除外でも Task B 終了扱いで Task A へ。
-                NotifyTaskBCompleted();
-            }
-        }
-    }
+    // v5.3 Phase B: EvaluateTaskAVAS / EvaluateTaskBVAS は VAS 全廃に伴い削除。
+    // VHI 成立判定はオフライン解析と SoA 指標で代替する（限界は Experiment.md 12 節参照）。
 
     public void AdvanceState()
     {
@@ -307,7 +262,9 @@ public class ExperimentManager : MonoBehaviour
                 return ExperimentState.TaskA_Induction;
             case ExperimentState.TaskA_Induction: return ExperimentState.TaskA_Baseline;
             case ExperimentState.TaskA_Baseline: return ExperimentState.TaskA_Main;
-            case ExperimentState.TaskA_Main: return ExperimentState.BlockRest;
+            // v5.3 Phase A.5 補正: TaskA_Main の Next は無条件 Finished。
+            // TaskAController が自然完了時に呼ぶ ChangeState(BlockRest) 経路は別途維持される。
+            case ExperimentState.TaskA_Main: return ExperimentState.Finished;
             default: return null; // StartMenu/TestMenu/ExperimentMenu/Finished は対象外
         }
     }
@@ -321,8 +278,10 @@ public class ExperimentManager : MonoBehaviour
             case ExperimentState.TaskB_Baseline: return ExperimentState.TaskB_Induction;
             case ExperimentState.TaskB_Main: return ExperimentState.TaskB_Baseline;
             case ExperimentState.BlockRest:
-                // TaskB 完了済みなら直前は TaskA_Main（A 内ブロック間）、未完了なら TaskB_Main
-                return taskBCompletedFlag ? ExperimentState.TaskA_Main : ExperimentState.TaskB_Main;
+                // v5.3 Phase A.5 補正: BlockRest に流入した「実タスク」状態に戻す。
+                // ChangeState で TaskA_Main/TaskB_Main からの流入時のみ記録するため、
+                // GoBackPhase で TaskA_Induction → BlockRest と戻ってきた場合も元の経路（例：TaskB_Main）を尊重する。
+                return lastStateBeforeBlockRest;
             case ExperimentState.TaskA_Induction: return ExperimentState.BlockRest;
             case ExperimentState.TaskA_Baseline: return ExperimentState.TaskA_Induction;
             case ExperimentState.TaskA_Main: return ExperimentState.TaskA_Baseline;
@@ -431,6 +390,7 @@ public class ExperimentManager : MonoBehaviour
             || targetState == ExperimentState.ExperimentMenu)
         {
             taskBCompletedFlag = false;
+            lastStateBeforeBlockRest = ExperimentState.TaskB_Main; // 初期値（TaskB → BlockRest → TaskA を前提）
         }
         ChangeState(targetState);
     }

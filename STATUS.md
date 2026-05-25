@@ -3,7 +3,7 @@
 > このファイルは「今どこにいるか」だけを書く。作業の区切りで**まるごと上書き**して最新に保つ。
 > 終わったことは消して `LOG.md` に移す。確定した仕様は `Experiment.md` に書く。
 
-**最終更新：2026-05-22（Phase A / A.5 完了）**
+**最終更新：2026-05-25（Phase A / A.5 / B / A.5 補正 完了、LSL ファイル整理完了）**
 
 ---
 
@@ -28,13 +28,7 @@
 - 各実験パネル（Practice/TaskA/TaskB/BlockRest/Finished）に Btn_Next / Btn_Back を配置
 - OnClick を `ExperimentManager.SkipCurrentPhase()` / `GoBackPhase()` に紐付け
 
-### Phase B：VAS の全廃
-- `Data/VASRecorder.cs` を削除
-- `UI/VASInputUI.cs` から VAS 関連メソッド・vasPanel 参照を除去（SoA UI 部分は Phase E まで保留）
-- `ExperimentManager.cs` の `EvaluateTaskAVAS()` / `EvaluateTaskBVAS()` と呼び出しを削除
-- `VHIInductionController.cs` の VAS 確認 Phase を削除
-
-### Phase C：操作系の左手移行・右手廃止
+### Phase C：操作系の左手移行・右手廃止【優先度: 低／実験完成に近づいてから】
 - `ExperimentUI.cs`：Aボタン/Bボタン応答の置換は Phase E で実施。キーボード Y/N はテスト用に残置
 - `bool testModeUIControl` フラグでテスト用操作の有効/無効を切替可能に
 - Unity エディタ側で右手モデル非表示が必要（手順を別途提示）

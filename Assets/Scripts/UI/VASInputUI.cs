@@ -1,7 +1,9 @@
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
+// v5.3 Phase B: VAS 全廃に伴い、VAS 関連の SerializeField/メソッドを削除。
+// SoA 応答 UI（soaPanel/Yes/No ボタン）は Phase E で「左手握りこぶし検出」に置換予定のため一旦残置。
+// クラス名は SerializeField のシーン参照を壊さないため VASInputUI のままとし、Phase E でリネーム検討。
 public class VASInputUI : MonoBehaviour
 {
     [Header("Dependencies")]
@@ -9,35 +11,19 @@ public class VASInputUI : MonoBehaviour
     [SerializeField] private TaskBController taskBController;
 
     [Header("Panels")]
-    [SerializeField] private GameObject vasPanel;
-    [SerializeField] private GameObject soaPanel; // Task B 応答用
-
-    [Header("VAS Components")]
-    [SerializeField] private Slider vasSlider;
-    [SerializeField] private TextMeshProUGUI vasValueText;
-    [SerializeField] private Button vasConfirmBtn;
-    [SerializeField] private TextMeshProUGUI vasTitleText;
+    [SerializeField] private GameObject soaPanel; // Task B SoA 応答用
 
     [Header("SoA Components (Task B)")]
     [SerializeField] private Button soaYesBtn;
     [SerializeField] private Button soaNoBtn;
 
-    private string currentTaskForVAS = "";
-
     private void Start()
     {
-        // 初期状態は非表示
-        vasPanel.SetActive(false);
         soaPanel.SetActive(false);
 
-        // リスナー登録
-        vasSlider.onValueChanged.AddListener(OnSliderValueChanged);
-        vasConfirmBtn.onClick.AddListener(OnVASConfirmed);
-        
         soaYesBtn.onClick.AddListener(() => OnSoAAnswered(1));
         soaNoBtn.onClick.AddListener(() => OnSoAAnswered(0));
 
-        // イベント購読
         ExperimentManager.Instance.OnStateChanged += HandleStateChanged;
         taskBController.OnSoAWindowOpened += ShowSoAPanel;
         taskBController.OnSoAWindowClosed += HideAll;
@@ -47,7 +33,7 @@ public class VASInputUI : MonoBehaviour
     {
         if (ExperimentManager.Instance != null)
             ExperimentManager.Instance.OnStateChanged -= HandleStateChanged;
-            
+
         if (taskBController != null)
         {
             taskBController.OnSoAWindowOpened -= ShowSoAPanel;
@@ -57,57 +43,23 @@ public class VASInputUI : MonoBehaviour
 
     private void HandleStateChanged(ExperimentState state)
     {
-        // v5.3: TaskA_VASCheck / TaskB_VASCheck 削除に伴い VAS パネル表示分岐を廃止。
-        // SoA パネルは TaskBController.OnSoAWindowOpened 経路で表示される（こちらは Phase E で再設計予定）。
+        // SoA パネルは TaskBController.OnSoAWindowOpened 経路で表示。
+        // ステート変化時はとりあえず全 UI を隠して整合を取る。
         HideAll();
-    }
-
-    private void ShowVASPanel()
-    {
-        vasSlider.value = 5; // 初期値
-        vasValueText.text = "5";
-        soaPanel.SetActive(false);
-        vasPanel.SetActive(true);
     }
 
     private void ShowSoAPanel()
     {
-        vasPanel.SetActive(false);
         soaPanel.SetActive(true);
     }
 
     private void HideAll()
     {
-        vasPanel.SetActive(false);
         soaPanel.SetActive(false);
-    }
-
-    private void OnSliderValueChanged(float val)
-    {
-        vasValueText.text = Mathf.RoundToInt(val).ToString();
-    }
-
-    private void OnVASConfirmed()
-    {
-        int vasValue = Mathf.RoundToInt(vasSlider.value);
-        HideAll();
-
-        // 記録用イベントの発火とステート遷移の呼び出し
-        if (currentTaskForVAS == "A")
-        {
-            VASRecorder.Instance.RecordVAS("A", taskAController.CurrentCondition, vasValue);
-            ExperimentManager.Instance.EvaluateTaskAVAS(vasValue, taskAController.CurrentCondition);
-        }
-        else if (currentTaskForVAS == "B")
-        {
-            VASRecorder.Instance.RecordVAS("B", "none", vasValue);
-            ExperimentManager.Instance.EvaluateTaskBVAS(vasValue);
-        }
     }
 
     private void OnSoAAnswered(int response)
     {
-        // ボタンが押されたらTaskBControllerへ送信
         taskBController.SubmitSoAResponse(response);
         HideAll();
     }

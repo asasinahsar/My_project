@@ -9,6 +9,9 @@
 
 | Phase | 内容 |
 |-------|------|
+| Phase A.5 補正（2026-05-25） | `ExperimentManager.cs` に `lastStateBeforeBlockRest` を追加し、`ChangeState` で TaskA_Main/TaskB_Main からの BlockRest 流入時のみ記録。`GetPreviousState` の BlockRest 分岐を `lastStateBeforeBlockRest` 参照に変更し、GoBackPhase 経由（TaskA_Induction → BlockRest 等）での経路破壊を防止。`GetNextState` の TaskA_Main → `BlockRest` を `Finished` に変更（Next ボタンで無条件 Finished へ）。Start/SwitchState でメニュー復帰時に lastStateBeforeBlockRest をリセット |
+| LSL ファイル整理（2026-05-25） | `Scripts/LSL/` の未使用 3 ファイル（`LslClockSynchronizer.cs` / `LslHealthMonitor.cs` / `EmgLslInletReceiver.cs`）を削除。理由：どこからも参照されておらず、EMG は EMG PC で記録する設計のため Unity 側 Inlet 不要。残置：`IMarkerSender.cs` / `LslMarkerSender.cs` / `DebugMarkerSender.cs` / `MarkerSenderRouter.cs` の 4 ファイル |
+| v5.3 Phase B（2026-05-22） | VAS の全廃。`Data/VASRecorder.cs` 削除、`UI/VASInputUI.cs` から VAS 関連 SerializeField/メソッド削除（SoA 部分は Phase E まで残置）、`ExperimentManager.cs` から `EvaluateTaskAVAS` / `EvaluateTaskBVAS` と `taskARetryCount` / `taskBRetryCount` 削除。`TaskAController.MarkCurrentBlockExcluded` は Phase D 再利用候補としてコメント付き残置 |
 | v5.3 Phase A.5（2026-05-22） | Consent/TaskA_VASCheck/TaskB_VASCheck の3ステートを削除。ExperimentManager に SkipCurrentPhase()/GoBackPhase()/GetNextState()/GetPreviousState() を追加。VHIInductionController の Induction 完了後遷移を VASCheck → Baseline に短絡。VASInputUI の HandleStateChanged から VASCheck 分岐削除（VAS 本体は Phase B で削除予定）。consentPanel SerializeField 削除 |
 | v5.3 Phase A（2026-05-22） | タスク順序を Task B → Task A に反転。ExperimentManager に taskBCompletedFlag / NotifyTaskBCompleted() を追加し、AdvanceState の Practice/BlockRest 分岐と EvaluateTaskBVAS 除外時遷移を反転。TaskBController:176 の完了時 ChangeState(Finished) → NotifyTaskBCompleted() に変更 |
 | P3 Task Aフロー | 静止確認（<5cm/s・1秒継続）・10秒待機→屈曲サイクル・onset検出のTask B専用化 |
