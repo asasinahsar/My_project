@@ -3,7 +3,7 @@
 > このファイルは「今どこにいるか」だけを書く。作業の区切りで**まるごと上書き**して最新に保つ。
 > 終わったことは消して `LOG.md` に移す。確定した仕様は `Experiment.md` に書く。
 
-**最終更新：2026-05-25（Phase A / A.5 / B / A.5 補正 完了、LSL ファイル整理完了）**
+**最終更新：2026-05-25（Phase A / A.5 / B / A.5 補正 / LSL マーカー補完 / Phase D 完了、LSL ファイル整理完了）**
 
 ---
 
@@ -23,21 +23,11 @@
 
 ## 進行中・次にやること
 
-### Phase A.5 後の Unity 側残作業（手順は本セッションの応答末尾に提示）
-- 旧 `Consent Panel` GameObject をシーンから削除（コード参照はゼロ済）
-- 各実験パネル（Practice/TaskA/TaskB/BlockRest/Finished）に Btn_Next / Btn_Back を配置
-- OnClick を `ExperimentManager.SkipCurrentPhase()` / `GoBackPhase()` に紐付け
 
 ### Phase C：操作系の左手移行・右手廃止【優先度: 低／実験完成に近づいてから】
 - `ExperimentUI.cs`：Aボタン/Bボタン応答の置換は Phase E で実施。キーボード Y/N はテスト用に残置
 - `bool testModeUIControl` フラグでテスト用操作の有効/無効を切替可能に
 - Unity エディタ側で右手モデル非表示が必要（手順を別途提示）
-
-### Phase D：async/sync を「VHI 誘導の有無」で定義
-- `VHIInductionController.cs`、`ExperimentManager.cs`、`TaskAController.cs`、`TaskBController.cs`
-- `SetAsyncOffset` 関連・async 時 `delayMs=500` 設定を廃止
-- async（誘導なし）→ sync（誘導あり）の 2 ブロック構造を実装
-- Task B 各ブロック 55 試行（QUEST 35 + 固定 Δt 20）、Task A 各ブロック 20 試行
 
 ### Phase E：Task B 試行構造の全面改修（最重要）
 - 遅延機構：Onset 検出（`EnableOnsetDetection` / `OnMovementDetected` 駆動）を廃止し、

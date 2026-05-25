@@ -99,6 +99,17 @@ public class ExperimentManager : MonoBehaviour
     {
         if (CurrentState == newState) return;
 
+        // v5.3 マーカー補完: 離脱マーカー（前ステートを離れる時に送信）
+        switch (CurrentState)
+        {
+            case ExperimentState.Practice:
+                SendMarker("PracticeEnd");
+                break;
+            case ExperimentState.BlockRest:
+                SendMarker("RestEnd");
+                break;
+        }
+
         // v5.3 Phase A.5 補正: BlockRest に「実タスクから」流入する時のみ直前状態を記録。
         // GoBackPhase 経由（TaskA_Induction → BlockRest 等）では記録を上書きしないため、
         // 元々の BlockRest 流入経路（TaskB_Main → BlockRest 等）が保持される。
@@ -148,6 +159,7 @@ public class ExperimentManager : MonoBehaviour
     public void StartExperiment()
     {
         // v5.3: Consent ステート削除に伴い、Practice から開始
+        SendMarker("ExpStart");
         SwitchState(ExperimentState.Practice);
     }
 
@@ -163,16 +175,20 @@ public class ExperimentManager : MonoBehaviour
                 ChangeState(ExperimentState.Practice);
                 break;
             case ExperimentState.Practice:
-                // v5.3: Task B → Task A の順序
-                ChangeState(ExperimentState.TaskB_Induction);
+                // v5.3 Phase D: async ブロック先（誘導なし）→ TaskB_Main 直行
+                ChangeState(ExperimentState.TaskB_Main);
                 break;
             case ExperimentState.BlockRest:
-                // v5.3: Task B 完了後の Rest → Task A へ。Task A 内 Rest → 次ブロック or Finished。
+                // v5.3 Phase D: condition に応じて誘導あり/なしを分岐
                 if (taskBCompletedFlag)
                 {
+                    // Task B 完了済 → Task A の次ブロックへ
                     if (taskAController != null && taskAController.HasRemainingBlocks)
                     {
-                        ChangeState(ExperimentState.TaskA_Induction);
+                        if (taskAController.CurrentCondition == "async")
+                            ChangeState(ExperimentState.TaskA_Main);     // async = 誘導なし
+                        else
+                            ChangeState(ExperimentState.TaskA_Induction); // sync = 誘導あり
                     }
                     else
                     {
@@ -181,9 +197,19 @@ public class ExperimentManager : MonoBehaviour
                 }
                 else
                 {
-                    // Phase D で Task B 内の async/sync 2 ブロック構造が入るまでは通常通らない経路。
-                    // 暫定で Task A 開始にフォールバック（順序反転を維持）。
-                    ChangeState(ExperimentState.TaskA_Induction);
+                    // Task B の次ブロックへ
+                    if (taskBController != null && taskBController.HasRemainingBlocks)
+                    {
+                        if (taskBController.CurrentCondition == "async")
+                            ChangeState(ExperimentState.TaskB_Main);     // async = 誘導なし
+                        else
+                            ChangeState(ExperimentState.TaskB_Induction); // sync = 誘導あり
+                    }
+                    else
+                    {
+                        // 想定外（Task B 完了済フラグ未設定 + 残ブロックなし）→ Task A へフォールバック
+                        ChangeState(ExperimentState.TaskA_Main);
+                    }
                 }
                 break;
             default:
@@ -248,18 +274,31 @@ public class ExperimentManager : MonoBehaviour
         switch (state)
         {
             case ExperimentState.Idle: return ExperimentState.Practice;
-            case ExperimentState.Practice: return ExperimentState.TaskB_Induction;
+            // v5.3 Phase D: Practice → TaskB_Main（async 先、誘導なし）に直行
+            case ExperimentState.Practice: return ExperimentState.TaskB_Main;
+            // TaskB_Induction → TaskB_Baseline → TaskB_Main は sync ブロック専用フロー
             case ExperimentState.TaskB_Induction: return ExperimentState.TaskB_Baseline;
             case ExperimentState.TaskB_Baseline: return ExperimentState.TaskB_Main;
             case ExperimentState.TaskB_Main: return ExperimentState.BlockRest;
             case ExperimentState.BlockRest:
+                // v5.3 Phase D: AdvanceState と同じ condition 判定
                 if (taskBCompletedFlag)
                 {
                     if (taskAController != null && taskAController.HasRemainingBlocks)
-                        return ExperimentState.TaskA_Induction;
+                    {
+                        return taskAController.CurrentCondition == "async"
+                            ? ExperimentState.TaskA_Main
+                            : ExperimentState.TaskA_Induction;
+                    }
                     return ExperimentState.Finished;
                 }
-                return ExperimentState.TaskA_Induction;
+                if (taskBController != null && taskBController.HasRemainingBlocks)
+                {
+                    return taskBController.CurrentCondition == "async"
+                        ? ExperimentState.TaskB_Main
+                        : ExperimentState.TaskB_Induction;
+                }
+                return ExperimentState.TaskA_Main;
             case ExperimentState.TaskA_Induction: return ExperimentState.TaskA_Baseline;
             case ExperimentState.TaskA_Baseline: return ExperimentState.TaskA_Main;
             // v5.3 Phase A.5 補正: TaskA_Main の Next は無条件 Finished。
@@ -274,17 +313,24 @@ public class ExperimentManager : MonoBehaviour
         switch (state)
         {
             case ExperimentState.Practice: return ExperimentState.Idle;
-            case ExperimentState.TaskB_Induction: return ExperimentState.Practice;
+            // v5.3 Phase D: TaskB_Induction は sync ブロック専用。直前は BlockRest（async ブロック後）
+            case ExperimentState.TaskB_Induction: return ExperimentState.BlockRest;
             case ExperimentState.TaskB_Baseline: return ExperimentState.TaskB_Induction;
-            case ExperimentState.TaskB_Main: return ExperimentState.TaskB_Baseline;
+            // v5.3 Phase D: TaskB_Main は async ブロック（直前は Practice）または sync ブロック（直前は TaskB_Baseline）
+            case ExperimentState.TaskB_Main:
+                return (taskBController != null && taskBController.CurrentCondition == "sync")
+                    ? ExperimentState.TaskB_Baseline
+                    : ExperimentState.Practice;
             case ExperimentState.BlockRest:
                 // v5.3 Phase A.5 補正: BlockRest に流入した「実タスク」状態に戻す。
-                // ChangeState で TaskA_Main/TaskB_Main からの流入時のみ記録するため、
-                // GoBackPhase で TaskA_Induction → BlockRest と戻ってきた場合も元の経路（例：TaskB_Main）を尊重する。
                 return lastStateBeforeBlockRest;
             case ExperimentState.TaskA_Induction: return ExperimentState.BlockRest;
             case ExperimentState.TaskA_Baseline: return ExperimentState.TaskA_Induction;
-            case ExperimentState.TaskA_Main: return ExperimentState.TaskA_Baseline;
+            // v5.3 Phase D: TaskA_Main は async ブロック（直前は BlockRest）または sync ブロック（直前は TaskA_Baseline）
+            case ExperimentState.TaskA_Main:
+                return (taskAController != null && taskAController.CurrentCondition == "sync")
+                    ? ExperimentState.TaskA_Baseline
+                    : ExperimentState.BlockRest;
             case ExperimentState.Finished: return ExperimentState.TaskA_Main;
             default: return null; // Idle/StartMenu/TestMenu/ExperimentMenu は対象外
         }

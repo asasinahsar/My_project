@@ -21,9 +21,10 @@ public class TaskAController : MonoBehaviour
     [SerializeField] private float stillnessDuration = 1.0f;
     [SerializeField] private float preMotionWait = 10.0f;
 
-    // 現在のブロック状態（0: sync, 1: async）
+    // v5.3 Phase D: async 先 → sync 後の順序（旧 v5.2 は sync 先）
+    // 現在のブロック状態（0: async, 1: sync）
     private int currentBlockIndex = 0;
-    public string CurrentCondition => currentBlockIndex == 0 ? "sync" : "async";
+    public string CurrentCondition => currentBlockIndex == 0 ? "async" : "sync";
     public bool HasRemainingBlocks => completedBlocks < TotalBlocks;
 
     private string logFilePath;
@@ -97,6 +98,13 @@ public class TaskAController : MonoBehaviour
     private IEnumerator TaskAMainRoutine()
     {
         Debug.Log($"[Task A] Starting {CurrentCondition} block. ({trialsPerBlock} trials)");
+        // v5.3 マーカー補完: Task A 全体の開始（最初のブロックのみ送出）
+        if (completedBlocks == 0)
+        {
+            SendMarker("TaskA_Start");
+        }
+        // v5.3 Phase D: ブロック単位の開始マーカー
+        SendMarker($"BlockStart_A_{CurrentCondition}");
 
         for (int trial = 1; trial <= trialsPerBlock; trial++)
         {
@@ -113,6 +121,8 @@ public class TaskAController : MonoBehaviour
 
             // 4. 自動屈曲開始（MotionOnset マーカーは HandVisualizer.OnMarkerRequested 経由で送出）
             AutoMotionType motionType = AutoMotionType.IndexFingerFlexion;
+            // v5.3 マーカー補完: 試行内の自動屈曲開始時刻
+            SendMarker($"AutoMotionStart_A_{CurrentCondition}_{trial}");
             handVisualizer.StartAutoMotion(motionType);
 
             float motionOnsetTime = Time.realtimeSinceStartup;
@@ -130,7 +140,14 @@ public class TaskAController : MonoBehaviour
         }
 
         Debug.Log($"[Task A] Block {CurrentCondition} Completed.");
+        // v5.3 Phase D: ブロック単位の終了マーカー（CompleteCurrentBlock 前に condition を確定送出）
+        SendMarker($"BlockEnd_A_{CurrentCondition}");
         CompleteCurrentBlock();
+        // v5.3 マーカー補完: 全 Task A ブロック完了時に Task A 全体の終了マーカー
+        if (completedBlocks >= TotalBlocks)
+        {
+            SendMarker("TaskA_End");
+        }
         ExperimentManager.Instance.ChangeState(ExperimentState.BlockRest);
     }
 

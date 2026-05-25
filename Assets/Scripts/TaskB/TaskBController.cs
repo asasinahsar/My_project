@@ -16,8 +16,16 @@ public class TaskBController : MonoBehaviour
 
     [Header("Trial Settings")]
     public int questTrialsCount = 35;
-    private int totalTrials = 55; // QUEST 35回 + 固定 20回
-    
+    private int totalTrials = 55; // QUEST 35回 + 固定 20回（1 ブロックあたり）
+
+    // v5.3 Phase D: async / sync の 2 ブロック構造（async 先 → sync 後）
+    private const int TotalBlocks = 2;
+    private int currentBlockIndex = 0;        // 0:async, 1:sync
+    private int completedBlocks = 0;
+    private bool blockCompletionRecorded = false;
+    public string CurrentCondition => currentBlockIndex == 0 ? "async" : "sync";
+    public bool HasRemainingBlocks => completedBlocks < TotalBlocks;
+
     // SoA回答受付用
     private const int InvalidSoAResponse = -1;
     private int currentSoAResponse = InvalidSoAResponse;
@@ -73,8 +81,15 @@ public class TaskBController : MonoBehaviour
 
     private void HandleStateChanged(ExperimentState state)
     {
-        if (state == ExperimentState.TaskB_Main)
+        if (state == ExperimentState.TaskB_Induction)
         {
+            // v5.3 Phase D: sync ブロックの誘導フロー進入時もブロック完了フラグをリセット
+            blockCompletionRecorded = false;
+        }
+        else if (state == ExperimentState.TaskB_Main)
+        {
+            // v5.3 Phase D: 各ブロック開始時に QUEST を再初期化（async/sync で独立推定）
+            blockCompletionRecorded = false;
             if (handVisualizer != null)
                 handVisualizer.EnableOnsetDetection = true;
             InitializeQuest();
@@ -88,7 +103,14 @@ public class TaskBController : MonoBehaviour
     // ==========================================================
     private IEnumerator TaskBMainRoutine()
     {
-        Debug.Log($"[Task B] Starting Main Phase. ({totalTrials} trials)");
+        Debug.Log($"[Task B] Starting {CurrentCondition} block. ({totalTrials} trials)");
+        // v5.3 マーカー補完: Task B 全体の開始（最初のブロックのみ送出）
+        if (completedBlocks == 0)
+        {
+            SendMarker("TaskB_Start");
+        }
+        // v5.3 Phase D: ブロック単位の開始マーカー
+        SendMarker($"BlockStart_B_{CurrentCondition}");
 
         for (int trial = 1; trial <= totalTrials; trial++)
         {
@@ -170,11 +192,42 @@ public class TaskBController : MonoBehaviour
             LogTrialData(trial, currentDeltaMs, currentSoAResponse, trialStartTime, motionOnsetTime, trialEndTime, currentQuestEstimate);
         }
 
-        Debug.Log($"[Task B] Completed! Final Estimated τ_SoA: {QuestMean()}ms");
+        Debug.Log($"[Task B] Block {CurrentCondition} completed. Block τ_SoA estimate: {QuestMean()}ms");
         if (handVisualizer != null)
             handVisualizer.EnableOnsetDetection = false;
-        // v5.3: Task B → Task A の順序。完了通知で Rest を経由して Task A へ遷移。
-        ExperimentManager.Instance.NotifyTaskBCompleted();
+
+        // v5.3 Phase D: ブロック単位の終了マーカー
+        SendMarker($"BlockEnd_B_{CurrentCondition}");
+
+        CompleteCurrentBlock();
+
+        if (HasRemainingBlocks)
+        {
+            // まだ sync ブロックが残っている → BlockRest 経由で sync 誘導へ
+            ExperimentManager.Instance.ChangeState(ExperimentState.BlockRest);
+        }
+        else
+        {
+            // 全ブロック完了 → Task B 全体終了 → Task A へ
+            SendMarker("TaskB_End");
+            ExperimentManager.Instance.NotifyTaskBCompleted();
+        }
+    }
+
+    private void CompleteCurrentBlock()
+    {
+        if (blockCompletionRecorded) return;
+        if (completedBlocks >= TotalBlocks) return;
+
+        blockCompletionRecorded = true;
+        int nextCompletedBlocks = completedBlocks + 1;
+        if (nextCompletedBlocks > TotalBlocks) return;
+
+        completedBlocks = nextCompletedBlocks;
+        if (completedBlocks < TotalBlocks)
+        {
+            currentBlockIndex = completedBlocks;
+        }
     }
 
     // UIやキーボードから応答をセットするためのパブリックメソッド

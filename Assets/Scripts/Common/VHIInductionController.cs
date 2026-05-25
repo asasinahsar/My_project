@@ -59,10 +59,11 @@ public class VHIInductionController : MonoBehaviour
     private IEnumerator TaskAInductionRoutine()
     {
         string condition = taskAController.CurrentCondition;
-        
-        // 時間的非同期：async時500ms遅延、sync時0ms
-        handVisualizer.delayMs = (condition == "async") ? 500f : 0f;
-        
+
+        // v5.3 Phase D: async = 誘導なし、sync = 誘導あり に再定義。
+        // 旧 v5.2 の「async = Δt=500ms 固定遅延」は廃止。誘導フローでは遅延を 0 に固定する。
+        handVisualizer.delayMs = 0f;
+
         SendMarker($"InductionStart_A_{condition}");
         Debug.Log($"[VHI Induction] Task A Phase 1 (Brush Stroking) Started. Condition: {condition}");
 
