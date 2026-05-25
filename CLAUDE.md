@@ -87,6 +87,7 @@
 Common/
   ExperimentManager.cs     実験ステート管理
   HandVisualizer.cs        実手トラッキング・仮想手制御・自動モーション
+  HandSignDetector.cs       左手ハンドサイン（ピンチ：親指+人差し指タッチ）検出
   TestModeController.cs     テストモード制御
   VHIInductionController.cs VHI誘導フロー制御
   RingBuffer.cs            リングバッファ（遅延用）
@@ -100,7 +101,8 @@ TaskA/
 TaskB/
   TaskBController.cs       Task B フロー制御
 UI/
-  ExperimentUI.cs
-  TaskInstructionUI.cs
-  VASInputUI.cs            SoA 応答 UI（クラス名は Phase E でリネーム検討）
+  ExperimentUI.cs          実験者向け UI（ステート表示・キーボード Y/N 入力）
+  TaskInstructionUI.cs     タスク指示テキスト表示
+  SoAResponseUI.cs         Task B 回答フェーズ UI（ハンドサイン応答 + 残り時間）
+  ParticipantHUD.cs        被験者向け HUD（試行/屈曲進捗、ペース合図、ビープ音）
 ```

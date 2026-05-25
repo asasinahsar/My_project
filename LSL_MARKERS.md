@@ -3,7 +3,7 @@
 > Unity アプリ（Quest 実機）から LSL ストリーム `Markers` に送出される全マーカーの仕様。
 > EMG とのオフライン同期解析時の参照リスト。**新しいマーカーを追加・変更したら必ずこのファイルを更新する。**
 
-**最終更新：2026-05-25（Phase D 反映）**
+**最終更新：2026-05-25（Phase D / Phase E2 反映）**
 **ストリーム名:** `Markers` / **タイプ:** `Markers` / **channel format:** `string` / **チャンネル数:** 1
 
 ---
@@ -58,18 +58,16 @@
 | `BlockStart_B_{condition}` | Task B の async/sync 各ブロック開始（55 試行単位） | TaskBController |
 | `BlockEnd_B_{condition}` | Task B の async/sync 各ブロック終了 | TaskBController |
 | `TrialStart_B_{n}_Delta{ms}ms` | 各試行の開始（n=試行番号、ms=Δt） | TaskBController |
-| `MotionOnset_B_Delta{ms}ms` | 屈曲オンセット検出（Phase E で再設計予定） | TaskBController |
-| `SoAResponse_{0 or 1}` | SoA 応答受信（1=Yes 崩壊、0=No 維持） | TaskBController |
-| `SoAResponse_Missed` | 応答タイムアウト（3 秒以内に応答なし） | TaskBController |
+| `FlexionDetected_B_{n}_count{i}` | ペース化屈曲の各回検出（i=1〜flexionCountPerTrial） | TaskBController |
+| `ResponseWindowStart_B_{n}` | 回答フェーズ開始（合図表示） | TaskBController |
+| `SoA_Yes_Trial{n}_Dt{ms}ms` | 左手ピンチ（親指+人差し指タッチ）検出による Yes 応答 | TaskBController |
+| `SoA_No_Trial{n}_Dt{ms}ms` | 無反応 No 応答（時間切れ） | TaskBController |
 | `TrialEnd_B_{n}` | 各試行の終了 | TaskBController |
 
-### Phase E で追加予定のマーカー
-| マーカー | 送信タイミング |
-|---------|--------------|
-| `FlexionDetected_B_{n}_count{i}` | ペース化屈曲の各回検出（i=1〜flexionCountPerTrial） |
-| `ResponseWindowStart_B_{n}` | 回答フェーズ開始（合図表示） |
-| `SoA_Yes_Trial{n}_Dt{ms}ms` | 左手握りこぶし検出による Yes 応答（既存の `SoAResponse_*` を置換） |
-| `SoA_No_Trial{n}_Dt{ms}ms` | 無反応 No 応答（既存の `SoAResponse_*` を置換） |
+### Phase E2 で廃止されたマーカー
+- `MotionOnset_B_Delta{ms}ms`：Onset 検出・Δt 待機方式の廃止に伴い廃止
+- `SoAResponse_{0 or 1}`：`SoA_Yes_Trial{n}_Dt{ms}ms` / `SoA_No_Trial{n}_Dt{ms}ms` に置換
+- `SoAResponse_Missed`：無反応は `SoA_No_*` に統合
 
 ---
 

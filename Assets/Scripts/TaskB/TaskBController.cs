@@ -18,6 +18,14 @@ public class TaskBController : MonoBehaviour
     public int questTrialsCount = 35;
     private int totalTrials = 55; // QUEST 35回 + 固定 20回（1 ブロックあたり）
 
+    [Header("Phase E: Pacing & Response")]
+    [SerializeField] private float pacingInterval = 5.0f;       // 屈曲検出後の最小静止区間（秒）
+    [SerializeField] private int flexionCountPerTrial = 5;       // 1試行あたりの屈曲回数
+    [SerializeField] private float responseWindowSeconds = 5.0f; // 回答フェーズ制限時間（秒）
+
+    [Header("Phase E: Hand Sign Detector")]
+    [SerializeField] private HandSignDetector handSignDetector;
+
     // v5.3 Phase D: async / sync の 2 ブロック構造（async 先 → sync 後）
     private const int TotalBlocks = 2;
     private int currentBlockIndex = 0;        // 0:async, 1:sync
@@ -30,9 +38,15 @@ public class TaskBController : MonoBehaviour
     private const int InvalidSoAResponse = -1;
     private int currentSoAResponse = InvalidSoAResponse;
     
-    // UI表示制御用のイベント（VASInputUI.cs等から購読する）
+    // UI表示制御用のイベント（SoAResponseUI / ParticipantHUD から購読する）
     public event Action OnSoAWindowOpened;
     public event Action OnSoAWindowClosed;
+
+    // v5.3 Phase E2: 試行・ペース合図のフック（UI/音は Phase E3 で実装）
+    public event Action OnTrialStartCue;             // 試行開始の合図
+    public event Action<int, int> OnPacingCue;       // ペース合図（current, total）
+    public event Action OnResponseWindowOpened;      // 回答フェーズ開始合図
+    public event Action OnFlexionDetected;           // 屈曲検出時の視覚フィードバック
 
     private string logFilePath;
     private IMarkerSender markerSender;
@@ -57,6 +71,17 @@ public class TaskBController : MonoBehaviour
     {
         ExperimentManager.Instance.OnStateChanged += HandleStateChanged;
         InitializeLogFile();
+
+        // v5.3 Phase E2: ハンドサイン検出を SubmitSoAResponse(1) に接続
+        // v5.3 Phase E1 改訂: ピンチ（親指+人差し指タッチ）検出にロジック変更
+        if (handSignDetector != null)
+        {
+            handSignDetector.OnHandSignDetected += OnHandSignDetectedHandler;
+        }
+        else
+        {
+            Debug.LogWarning("[TaskBController] HandSignDetector が未割当。回答フェーズはキーボード Y/N のみで応答受付。");
+        }
     }
 
     private void OnDestroy()
@@ -64,7 +89,18 @@ public class TaskBController : MonoBehaviour
         if (ExperimentManager.Instance != null)
             ExperimentManager.Instance.OnStateChanged -= HandleStateChanged;
 
+        if (handSignDetector != null)
+        {
+            handSignDetector.OnHandSignDetected -= OnHandSignDetectedHandler;
+        }
+
         UnsubscribeMovementDetectedHandler();
+    }
+
+    private void OnHandSignDetectedHandler()
+    {
+        // 回答フェーズ中にハンドサイン（ピンチ）が検出された → Yes 申告
+        SubmitSoAResponse(1);
     }
 
     private void InitializeLogFile()
@@ -75,7 +111,8 @@ public class TaskBController : MonoBehaviour
         logFilePath = Path.Combine(directory, "TaskB_log.csv");
         if (!File.Exists(logFilePath))
         {
-            File.WriteAllText(logFilePath, "trial_no,delta_ms,soa_response,trial_start_time,motion_onset_time,trial_end_time,quest_estimate\n");
+            // v5.3 Phase E2: motion_onset_time（単一）を削除し、flexion_count / response_time / condition を追加
+            File.WriteAllText(logFilePath, "trial_no,condition,delta_ms,soa_response,trial_start_time,trial_end_time,flexion_count,response_time,quest_estimate\n");
         }
     }
 
@@ -121,7 +158,7 @@ public class TaskBController : MonoBehaviour
             else
                 currentDeltaMs = fixedTrialsDelay[trial - questTrialsCount - 1];
 
-            // HandVisualizerへ遅延をセット
+            // v5.3 Phase E2: 試行中は常時この遅延でバーチャルハンドが描画される（HandVisualizer.ApplyDelayedPose 経由）
             handVisualizer.delayMs = currentDeltaMs;
             float currentQuestEstimate = QuestMean();
 
@@ -131,65 +168,98 @@ public class TaskBController : MonoBehaviour
 
             float trialStartTime = Time.realtimeSinceStartup;
 
-            // 3. 試行開始マーカー送出
+            // 3. 試行開始マーカー送出 + 視覚/音合図フック
             SendMarker($"TrialStart_B_{trial}_Delta{currentDeltaMs}ms");
+            OnTrialStartCue?.Invoke();
 
-            // 4. 運動開始（Onset）の待機
-            bool motionDetected = false;
+            // ============ 計測フェーズ ============
+            // v5.3 Phase E2: ペース化屈曲を flexionCountPerTrial 回検出する。
+            // 各屈曲は最小静止区間 pacingInterval 秒で分離（直前運動の余波が運動準備窓に混入しないように）。
+            int flexionCount = 0;
             UnsubscribeMovementDetectedHandler();
-            movementDetectedHandler = () => motionDetected = true;
-            handVisualizer.OnMovementDetected += movementDetectedHandler;
-            handVisualizer.ResetMotionDetection();
+            handVisualizer.EnableOnsetDetection = true;
 
-            // 実際の運動が検知されるまで待機（タイムスタンプはマーカー側で記録）
-            while (!motionDetected) yield return null;
-            UnsubscribeMovementDetectedHandler();
+            for (int cycle = 1; cycle <= flexionCountPerTrial; cycle++)
+            {
+                // ペース合図（UI/音は Phase E3 で実装）
+                OnPacingCue?.Invoke(cycle, flexionCountPerTrial);
 
-            // 5. 仮想手が動くまでの遅延（Δt）を待機
-            if (currentDeltaMs > 0)
-                yield return new WaitForSeconds(currentDeltaMs / 1000f);
+                // 屈曲検出ハンドラを毎周期登録 → 検出されるまで待機（無制限）
+                bool detectedThisCycle = false;
+                movementDetectedHandler = () => detectedThisCycle = true;
+                handVisualizer.OnMovementDetected += movementDetectedHandler;
+                handVisualizer.ResetMotionDetection();
 
-            float motionOnsetTime = Time.realtimeSinceStartup;
+                while (!detectedThisCycle) yield return null;
 
-            // 6. バーチャルハンドが動いた瞬間にマーカー送出
-            SendMarker($"MotionOnset_B_Delta{currentDeltaMs}ms");
+                UnsubscribeMovementDetectedHandler();
 
-            // 7. 実験者または被験者からのSoA有無（1/0）を記録（最大3秒待機）
+                flexionCount++;
+                SendMarker($"FlexionDetected_B_{trial}_count{flexionCount}");
+                OnFlexionDetected?.Invoke();
+
+                // 最後の屈曲以外は次の合図まで pacingInterval 秒の静止区間
+                if (cycle < flexionCountPerTrial)
+                {
+                    yield return new WaitForSeconds(pacingInterval);
+                }
+            }
+
+            handVisualizer.EnableOnsetDetection = false;
+
+            // ============ 回答フェーズ ============
+            SendMarker($"ResponseWindowStart_B_{trial}");
+            OnResponseWindowOpened?.Invoke();
+            OnSoAWindowOpened?.Invoke();
+
             currentSoAResponse = InvalidSoAResponse;
-            OnSoAWindowOpened?.Invoke(); // UIを表示
+            if (handSignDetector != null)
+            {
+                handSignDetector.EnableDetection = true;
+            }
 
             float responseTimer = 0f;
-            while (currentSoAResponse == InvalidSoAResponse && responseTimer < 3.0f)
+            while (currentSoAResponse == InvalidSoAResponse && responseTimer < responseWindowSeconds)
             {
                 responseTimer += Time.deltaTime;
                 yield return null;
             }
 
-            OnSoAWindowClosed?.Invoke(); // UIを非表示
+            if (handSignDetector != null)
+            {
+                handSignDetector.EnableDetection = false;
+            }
+            OnSoAWindowClosed?.Invoke();
 
+            float responseTime = (currentSoAResponse != InvalidSoAResponse) ? responseTimer : -1f;
             float trialEndTime = Time.realtimeSinceStartup;
 
-            // 8. 応答処理とQUEST更新
-            if (currentSoAResponse != InvalidSoAResponse)
+            // 応答結果（無反応＝No に統合）
+            int loggedResponse;
+            if (currentSoAResponse == 1)
             {
-                SendMarker($"SoAResponse_{currentSoAResponse}");
-                
-                // QUESTフェーズ中であれば事後分布を更新
-                if (trial <= questTrialsCount)
-                {
-                    QuestUpdate(currentDeltaMs, currentSoAResponse);
-                }
+                loggedResponse = 1;
+                SendMarker($"SoA_Yes_Trial{trial}_Dt{currentDeltaMs}ms");
             }
             else
             {
-                // 3秒以内に回答がなかった場合
-                SendMarker("SoAResponse_Missed");
-                Debug.LogWarning($"[Task B] Trial {trial}: No response within 3s window.");
+                loggedResponse = 0;
+                SendMarker($"SoA_No_Trial{trial}_Dt{currentDeltaMs}ms");
+                if (currentSoAResponse == InvalidSoAResponse)
+                {
+                    Debug.Log($"[Task B] Trial {trial}: No response (treated as No).");
+                }
             }
 
-            // 9. 試行終了マーカーとロギング
+            // QUEST 更新（QUEST フェーズ内のみ）
+            if (trial <= questTrialsCount)
+            {
+                QuestUpdate(currentDeltaMs, loggedResponse);
+            }
+
+            // 試行終了マーカーとロギング
             SendMarker($"TrialEnd_B_{trial}");
-            LogTrialData(trial, currentDeltaMs, currentSoAResponse, trialStartTime, motionOnsetTime, trialEndTime, currentQuestEstimate);
+            LogTrialData(trial, CurrentCondition, currentDeltaMs, loggedResponse, trialStartTime, trialEndTime, flexionCount, responseTime, currentQuestEstimate);
         }
 
         Debug.Log($"[Task B] Block {CurrentCondition} completed. Block τ_SoA estimate: {QuestMean()}ms");
@@ -248,6 +318,11 @@ public class TaskBController : MonoBehaviour
             handVisualizer.delayMs = 0f;
             handVisualizer.ResetMotionDetection();
         }
+        // v5.3 Phase E2: 中断時にハンドサイン検出も無効化
+        if (handSignDetector != null)
+        {
+            handSignDetector.EnableDetection = false;
+        }
     }
 
     private void UnsubscribeMovementDetectedHandler()
@@ -258,9 +333,10 @@ public class TaskBController : MonoBehaviour
         movementDetectedHandler = null;
     }
 
-    private void LogTrialData(int trialNo, float deltaMs, int response, float startTime, float onsetTime, float endTime, float questEst)
+    private void LogTrialData(int trialNo, string condition, float deltaMs, int response, float startTime, float endTime, int flexionCount, float responseTime, float questEst)
     {
-        string logLine = $"{trialNo},{deltaMs},{response},{startTime:F3},{onsetTime:F3},{endTime:F3},{questEst:F2}\n";
+        // v5.3 Phase E2: motion_onset_time を廃止し condition / flexion_count / response_time を追加。
+        string logLine = $"{trialNo},{condition},{deltaMs},{response},{startTime:F3},{endTime:F3},{flexionCount},{responseTime:F3},{questEst:F2}\n";
         File.AppendAllText(logFilePath, logLine);
     }
 

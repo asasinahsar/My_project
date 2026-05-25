@@ -8,6 +8,13 @@ public enum AutoMotionType
     IndexFingerFlexion
 }
 
+// v5.3 Phase E2: Task B 計測フェーズの屈曲検出方式
+public enum FlexionDetectionMode
+{
+    VelocityBased,       // 手首位置速度ベース（既存）。シンプル・どの動作にも反応
+    AngleVelocityBased,  // 手首回転角速度ベース。屈曲軸成分が閾値超過時のみ反応
+}
+
 public class HandVisualizer : MonoBehaviour
 {
     [Header("Mode Settings")]
@@ -24,6 +31,11 @@ public class HandVisualizer : MonoBehaviour
 
     [Header("Onset Detection (Task B)")]
     [SerializeField] private float velocityThreshold = 0.05f;
+
+    // v5.3 Phase E2: 検出方式の切替
+    [SerializeField] private FlexionDetectionMode flexionDetectionMode = FlexionDetectionMode.VelocityBased;
+    [SerializeField] private float angularVelocityThreshold = 90f; // 角速度しきい値（deg/s）
+    [SerializeField] private Vector3 flexionAxisLocal = Vector3.right; // 屈曲軸（手首ローカル座標系）
 
     [Header("Index Finger Joints (Task A)")]
     [SerializeField] private Transform indexMCP;
@@ -48,6 +60,8 @@ public class HandVisualizer : MonoBehaviour
     private RingBuffer<HandPose> poseBuffer;
     private bool hasDetectedMotionThisTrial = false;
     private Vector3 previousPosition;
+    private Quaternion previousRotation = Quaternion.identity;
+    private bool hasPreviousRotation = false;
     private Coroutine autoMotionCoroutine;
     private Quaternion autoMotionBaseRotation;
     private bool hasAutoMotionBaseRotation = false;
@@ -191,12 +205,36 @@ public class HandVisualizer : MonoBehaviour
         float currentTime = Time.realtimeSinceStartup;
 
         CurrentSpeed = Vector3.Distance(actualHandWrist.position, previousPosition) / Time.deltaTime;
-        if (EnableOnsetDetection && !isAutoMode && !hasDetectedMotionThisTrial && CurrentSpeed > velocityThreshold)
+
+        // v5.3 Phase E2: 屈曲検出（速度ベース or 角速度ベース）
+        if (EnableOnsetDetection && !isAutoMode && !hasDetectedMotionThisTrial)
         {
-            hasDetectedMotionThisTrial = true;
-            OnMovementDetected?.Invoke();
+            bool detected = false;
+            if (flexionDetectionMode == FlexionDetectionMode.VelocityBased)
+            {
+                detected = CurrentSpeed > velocityThreshold;
+            }
+            else if (flexionDetectionMode == FlexionDetectionMode.AngleVelocityBased && hasPreviousRotation)
+            {
+                // 手首回転の屈曲軸成分の角速度（deg/s）を計算
+                Quaternion delta = actualHandWrist.rotation * Quaternion.Inverse(previousRotation);
+                delta.ToAngleAxis(out float angleDeg, out Vector3 axisWorld);
+                if (angleDeg > 180f) angleDeg -= 360f; // 連続性を保つ
+                Vector3 flexionAxisWorld = actualHandWrist.TransformDirection(flexionAxisLocal.normalized);
+                float projectedAngle = angleDeg * Vector3.Dot(axisWorld.normalized, flexionAxisWorld);
+                float angularSpeed = Mathf.Abs(projectedAngle) / Mathf.Max(Time.deltaTime, 0.0001f);
+                detected = angularSpeed > angularVelocityThreshold;
+            }
+
+            if (detected)
+            {
+                hasDetectedMotionThisTrial = true;
+                OnMovementDetected?.Invoke();
+            }
         }
         previousPosition = actualHandWrist.position;
+        previousRotation = actualHandWrist.rotation;
+        hasPreviousRotation = true;
 
         HandPose currentPose = poseBuffer.GetNextWritableItem();
         currentPose.wristPosition = actualHandWrist.position;
@@ -257,7 +295,8 @@ public class HandVisualizer : MonoBehaviour
     // Public API
     // ----------------------------------------------------------------
 
-    public void StartAutoMotion(AutoMotionType motionType)
+    // v5.3 Phase F: duration 引数を追加。デフォルト 2.0f で TestModeController 等との互換性を維持。
+    public void StartAutoMotion(AutoMotionType motionType, float duration = 2.0f)
     {
         StopAutoMotion();
 
@@ -272,7 +311,7 @@ public class HandVisualizer : MonoBehaviour
         if (indexPIP != null) _indexPipBase = indexPIP.localRotation;
         if (indexDIP != null) _indexDipBase = indexDIP.localRotation;
 
-        autoMotionCoroutine = StartCoroutine(AutoMotionRoutine(motionType));
+        autoMotionCoroutine = StartCoroutine(AutoMotionRoutine(motionType, duration));
     }
 
     public void StartTestModeMotion()
@@ -300,7 +339,8 @@ public class HandVisualizer : MonoBehaviour
     // Coroutines
     // ----------------------------------------------------------------
 
-    private IEnumerator AutoMotionRoutine(AutoMotionType motionType)
+    // v5.3 Phase F: duration を引数で受け取る。
+    private IEnumerator AutoMotionRoutine(AutoMotionType motionType, float duration)
     {
         isAutoMode = true;
 
@@ -317,7 +357,6 @@ public class HandVisualizer : MonoBehaviour
 
         OnMarkerRequested?.Invoke($"MotionOnset_A_{motionType}");
 
-        float duration = 2.0f;
         float elapsed = 0f;
 
         while (elapsed < duration)
@@ -394,6 +433,14 @@ public class HandVisualizer : MonoBehaviour
     {
         if (virtualHandRoot != null)
             virtualHandRoot.SetActive(ShouldShowHand(state));
+
+        // v5.3 修正: TaskB_Main 以外のステートでは固定遅延を 0 にリセットして
+        // 練習・誘導・ベースライン・他タスク中に前回の delayMs が残らないようにする。
+        // TaskB_Main の各試行では TaskBController.TaskBMainRoutine が delayMs を毎試行設定する。
+        if (state != ExperimentState.TaskB_Main)
+        {
+            delayMs = 0f;
+        }
     }
 
     private static bool ShouldShowHand(ExperimentState state)

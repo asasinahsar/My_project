@@ -3,7 +3,7 @@
 > このファイルは「今どこにいるか」だけを書く。作業の区切りで**まるごと上書き**して最新に保つ。
 > 終わったことは消して `LOG.md` に移す。確定した仕様は `Experiment.md` に書く。
 
-**最終更新：2026-05-25（Phase A / A.5 / B / A.5 補正 / LSL マーカー補完 / Phase D 完了、LSL ファイル整理完了）**
+**最終更新：2026-05-25（Phase F 完了）**
 
 ---
 
@@ -23,49 +23,50 @@
 
 ## 進行中・次にやること
 
+### Phase G：練習ブロックの整理【優先度: 中】
+- Task A の練習を廃止
+- Task B 本計測前に `practiceTrialCount`（3 試行）の練習。練習試行は解析対象外フラグ付き
 
 ### Phase C：操作系の左手移行・右手廃止【優先度: 低／実験完成に近づいてから】
 - `ExperimentUI.cs`：Aボタン/Bボタン応答の置換は Phase E で実施。キーボード Y/N はテスト用に残置
 - `bool testModeUIControl` フラグでテスト用操作の有効/無効を切替可能に
 - Unity エディタ側で右手モデル非表示が必要（手順を別途提示）
 
-### Phase E：Task B 試行構造の全面改修（最重要）
-- 遅延機構：Onset 検出（`EnableOnsetDetection` / `OnMovementDetected` 駆動）を廃止し、
-  **固定遅延を RingBuffer 流用で常時適用**（Δt 過去のポーズを描画）
-- 計測フェーズ：`pacingInterval`（5秒）ごとに視覚＋音ペース合図、左手首屈曲を検出してカウント、
-  `flexionCountPerTrial`（5回）で終了
-- 回答フェーズ：合図後、`responseWindowSeconds`（**SerializeField・初期値 3 秒**）以内に
-  **左手握りこぶし（Fist）**を検出 → Yes、無反応 → No
-- LSL マーカー：`SoA_Yes_Trial{n}_Dt{delta_t}ms` / `SoA_No_Trial{n}_Dt{delta_t}ms`
-- ハンドサイン検出は新規実装（XR Hands のジョイント姿勢から判定、回答フェーズでのみ有効化）
+---
 
-### Phase F：Task A 時間ベース化・自動屈曲 1 秒
-- 対象：`TaskAController.cs`、`HandVisualizer.cs`
-- 速度ベース静止確認を廃止し、`autoMotionStartDelay`（3秒）の待機に変更
-- 自動屈曲 2秒 → `autoMotionDuration`（1秒）
-- サイクル：`autoMotionDuration` + `autoMotionInterval`
-- **テストモード（TestModeController）の「待機→自動屈曲→繰り返し」挙動を本番モードで流用**
+## 未完了の Unity 側作業（VRデバッグ対応）
 
-### Phase G：練習ブロックの整理
-- Task A の練習を廃止
-- Task B 本計測前に `practiceTrialCount`（3 試行）の練習。練習試行は解析対象外フラグ付き
+| 作業 | 対象 |
+|------|------|
+| `responseWindowSeconds` を Inspector で 5 秒に変更 | TaskBController / SoAResponseUI |
+| HandSignDetector の Inspector を再設定（`thumbTip` / `indexTip` をアタッチ） | HandSignDetector |
+| 左手 Interactor（Poke / Near-Far / Direct）を無効化 | XR Rig の左手 GameObject |
+| SoAResponseUI / ParticipantHUD を taskBPanel 外の常時 active な親階層下に配置 | Hierarchy 確認 |
+| TMP フォント: `NotoSansJP-VariableFont_wght SDF.asset` の Atlas Population Mode を Dynamic に | Font Asset |
 
 ---
 
-## 着手前に確定済みの未確定事項（MIGRATION 5 節より）
+## 確定済みの設計決定
 
 | 項目 | 確定値 |
 |------|--------|
-| Yes ハンドサインの具体形 | **握りこぶし（Fist）** |
-| 回答フェーズの制限時間 | **SerializeField で公開・初期値 3 秒**（`responseWindowSeconds`） |
+| Yes ハンドサインの具体形 | **ピンチ（親指+人差し指タッチ）** ※握りこぶしから変更（2026-05-25） |
+| 回答フェーズの制限時間 | **初期値 5 秒**（`responseWindowSeconds`、SerializeField で公開） |
 | 固定遅延の実装方式 | **RingBuffer 流用**（Δt 過去のポーズを描画） |
+| 屈曲検出方式 | **両方実装・Inspector 切替**（VelocityBased / AngleVelocityBased） |
+| 音素材 | **AudioClip 実行時生成**（サイン波ビープ、外部素材依存ゼロ） |
+| QUEST 推定 | **ブロックごとに再初期化**（async/sync 独立） |
+| BlockRest 戻り先 | `lastStateBeforeBlockRest` 記録ベース |
+| TaskA_Main → Next | **無条件 Finished** |
+| Practice 中の遅延 | **delayMs = 0 強制**（HandleStateChanged で TaskB_Main 以外はリセット） |
 
-## 残る未確定事項（実装中に詰める）
+## 残る未確定事項（パイロット実験で決定）
 
 | 項目 | タイミング |
 |------|-----------|
-| 屈曲検出の閾値（角度・速度） | Phase E 着手時に確認 |
-| 所要時間（パイロットで縮小検討） | パイロット実験時（実装後） |
+| 屈曲検出の閾値（`velocityThreshold` / `angularVelocityThreshold`） | パイロット実験で調整 |
+| 所要時間（試行数縮小検討） | パイロット実験で決定 |
+| Phase F の `autoMotionInterval` 最終値 | パイロット |
 
 ---
 

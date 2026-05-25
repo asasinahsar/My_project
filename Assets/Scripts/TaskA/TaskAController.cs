@@ -16,10 +16,13 @@ public class TaskAController : MonoBehaviour
     [Header("Settings")]
     public int trialsPerBlock = 20;
 
-    [Header("Stillness Detection (Task A)")]
-    [SerializeField] private float stillnessSpeedThreshold = 0.05f;
-    [SerializeField] private float stillnessDuration = 1.0f;
-    [SerializeField] private float preMotionWait = 10.0f;
+    [Header("Timing (Task A / Phase F)")]
+    [Tooltip("ブロック最初の試行前のみ適用する待機時間（秒）")]
+    [SerializeField] private float autoMotionStartDelay = 5.0f;
+    [Tooltip("人差し指自動屈曲の継続時間（秒）")]
+    [SerializeField] private float autoMotionDuration = 0.5f;
+    [Tooltip("屈曲完了後から次の屈曲開始までの待機時間（秒）")]
+    [SerializeField] private float autoMotionInterval = 10.0f;
 
     // v5.3 Phase D: async 先 → sync 後の順序（旧 v5.2 は sync 先）
     // 現在のブロック状態（0: async, 1: sync）
@@ -106,37 +109,43 @@ public class TaskAController : MonoBehaviour
         // v5.3 Phase D: ブロック単位の開始マーカー
         SendMarker($"BlockStart_A_{CurrentCondition}");
 
+        AutoMotionType motionType = AutoMotionType.IndexFingerFlexion;
+
+        // v5.3 Phase F: ブロック最初の試行前に autoMotionStartDelay 秒待機。
+        // 速度ベース静止確認（WaitForStillness）は廃止し、固定時間待機に変更。
+        // 待機中もハンドトラッキングは継続され手の微細な揺れが VR にリアルタイム反映される。
+        yield return new WaitForSeconds(autoMotionStartDelay);
+
         for (int trial = 1; trial <= trialsPerBlock; trial++)
         {
-            // 1. 静止確認（速度 < stillnessSpeedThreshold が stillnessDuration 秒継続）
-            yield return StartCoroutine(WaitForStillness());
-
-            // 2. 静止確認後 preMotionWait 秒待機
-            yield return new WaitForSeconds(preMotionWait);
-
             float trialStartTime = Time.realtimeSinceStartup;
 
-            // 3. 試行開始マーカー送出
+            // 1. 試行開始マーカー送出
             SendMarker($"TrialStart_A_{CurrentCondition}_{trial}");
 
-            // 4. 自動屈曲開始（MotionOnset マーカーは HandVisualizer.OnMarkerRequested 経由で送出）
-            AutoMotionType motionType = AutoMotionType.IndexFingerFlexion;
-            // v5.3 マーカー補完: 試行内の自動屈曲開始時刻
+            // 2. 自動屈曲開始（MotionOnset マーカーは HandVisualizer.OnMarkerRequested 経由でも送出）
+            // v5.3 Phase F: autoMotionDuration を HandVisualizer に渡す
             SendMarker($"AutoMotionStart_A_{CurrentCondition}_{trial}");
-            handVisualizer.StartAutoMotion(motionType);
+            handVisualizer.StartAutoMotion(motionType, autoMotionDuration);
 
             float motionOnsetTime = Time.realtimeSinceStartup;
 
-            // 5. 動作完了待機（往復 2 秒）
-            yield return new WaitForSeconds(2.0f);
+            // 3. 自動屈曲の完了を待機
+            yield return new WaitForSeconds(autoMotionDuration);
 
             float trialEndTime = Time.realtimeSinceStartup;
 
-            // 6. 試行終了マーカー送出
+            // 4. 試行終了マーカー送出
             SendMarker($"TrialEnd_A_{CurrentCondition}_{trial}");
 
-            // 7. CSV ログ
+            // 5. CSV ログ
             LogTrialData(trial, CurrentCondition, motionType.ToString(), trialStartTime, motionOnsetTime, trialEndTime, isExcludedBlock);
+
+            // 6. 次の試行まで autoMotionInterval 秒待機（最終試行は不要）
+            if (trial < trialsPerBlock)
+            {
+                yield return new WaitForSeconds(autoMotionInterval);
+            }
         }
 
         Debug.Log($"[Task A] Block {CurrentCondition} Completed.");
@@ -149,19 +158,6 @@ public class TaskAController : MonoBehaviour
             SendMarker("TaskA_End");
         }
         ExperimentManager.Instance.ChangeState(ExperimentState.BlockRest);
-    }
-
-    private IEnumerator WaitForStillness()
-    {
-        float stillTimer = 0f;
-        while (stillTimer < stillnessDuration)
-        {
-            if (handVisualizer.CurrentSpeed < stillnessSpeedThreshold)
-                stillTimer += Time.deltaTime;
-            else
-                stillTimer = 0f;
-            yield return null;
-        }
     }
 
     private void LogTrialData(int trialNo, string condition, string motionType, float startTime, float onsetTime, float endTime, bool excluded)
