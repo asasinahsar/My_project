@@ -55,11 +55,13 @@ public class ExperimentUI : MonoBehaviour
         {
             if (Input.GetKeyDown(KeyCode.Y))
             {
+                Debug.Log("[ExperimentUI] Keyboard Y pressed → SubmitSoAResponse(1)");
                 taskBController.SubmitSoAResponse(1); // SoA有
                 AddLog("[Experimenter Input] SoA: Yes (1)");
             }
             else if (Input.GetKeyDown(KeyCode.N))
             {
+                Debug.Log("[ExperimentUI] Keyboard N pressed → SubmitSoAResponse(0)");
                 taskBController.SubmitSoAResponse(0); // SoA無
                 AddLog("[Experimenter Input] SoA: No (0)");
             }

@@ -5,7 +5,9 @@ using UnityVirtual.Common; // RingBuffer用
 
 public enum AutoMotionType
 {
-    IndexFingerFlexion
+    IndexFingerFlexion,
+    MiddleFingerFlexion,
+    RingFingerFlexion
 }
 
 // v5.3 Phase E2: Task B 計測フェーズの屈曲検出方式
@@ -42,7 +44,18 @@ public class HandVisualizer : MonoBehaviour
     [SerializeField] private Transform indexPIP;
     [SerializeField] private Transform indexDIP;
 
-    [Header("Index Finger Flexion Settings (Task A)")]
+    [Header("Middle Finger Joints (Task A)")]
+    [SerializeField] private Transform middleMCP;
+    [SerializeField] private Transform middlePIP;
+    [SerializeField] private Transform middleDIP;
+
+    [Header("Ring Finger Joints (Task A)")]
+    [SerializeField] private Transform ringMCP;
+    [SerializeField] private Transform ringPIP;
+    [SerializeField] private Transform ringDIP;
+
+    [Header("Finger Flexion Settings (Task A, 3指共通)")]
+    [Tooltip("人差し指フィールド名のままだが3指共通で使用")]
     [SerializeField] private Vector3 indexFlexionAxis = Vector3.right;
     [SerializeField] private float indexFlexionAngle = 30f;
 
@@ -68,6 +81,12 @@ public class HandVisualizer : MonoBehaviour
     private Quaternion _indexMcpBase;
     private Quaternion _indexPipBase;
     private Quaternion _indexDipBase;
+    private Quaternion _middleMcpBase;
+    private Quaternion _middlePipBase;
+    private Quaternion _middleDipBase;
+    private Quaternion _ringMcpBase;
+    private Quaternion _ringPipBase;
+    private Quaternion _ringDipBase;
 
     public float CurrentSpeed { get; private set; }
     public bool EnableOnsetDetection { get; set; } = false;
@@ -182,9 +201,9 @@ public class HandVisualizer : MonoBehaviour
         if (rightHandRoot != null)
             rightHandRoot.SetActive(false);
 
-        // 仮想左手はタスク開始まで非表示
+        // 仮想左手は常時表示（ユーザー要望: 休憩中・タスク外でも LeftHand を表示）
         if (virtualHandRoot != null)
-            virtualHandRoot.SetActive(false);
+            virtualHandRoot.SetActive(true);
 
         if (ExperimentManager.Instance != null)
             ExperimentManager.Instance.OnStateChanged += HandleStateChanged;
@@ -306,10 +325,16 @@ public class HandVisualizer : MonoBehaviour
             hasAutoMotionBaseRotation = true;
         }
 
-        // 中断時の復帰用に人差し指ボーンのベース姿勢を保存
+        // 中断時の復帰用に3指分のボーンベース姿勢を保存
         if (indexMCP != null) _indexMcpBase = indexMCP.localRotation;
         if (indexPIP != null) _indexPipBase = indexPIP.localRotation;
         if (indexDIP != null) _indexDipBase = indexDIP.localRotation;
+        if (middleMCP != null) _middleMcpBase = middleMCP.localRotation;
+        if (middlePIP != null) _middlePipBase = middlePIP.localRotation;
+        if (middleDIP != null) _middleDipBase = middleDIP.localRotation;
+        if (ringMCP != null) _ringMcpBase = ringMCP.localRotation;
+        if (ringPIP != null) _ringPipBase = ringPIP.localRotation;
+        if (ringDIP != null) _ringDipBase = ringDIP.localRotation;
 
         autoMotionCoroutine = StartCoroutine(AutoMotionRoutine(motionType, duration));
     }
@@ -340,20 +365,40 @@ public class HandVisualizer : MonoBehaviour
     // ----------------------------------------------------------------
 
     // v5.3 Phase F: duration を引数で受け取る。
+    // A-2: motionType に応じて屈曲対象（人差し指/中指/薬指）を切り替える。
     private IEnumerator AutoMotionRoutine(AutoMotionType motionType, float duration)
     {
         isAutoMode = true;
+        Debug.Log($"[HandVisualizer] AutoMotionRoutine start: motionType={motionType}, duration={duration}");
 
-        if (indexMCP == null || indexPIP == null || indexDIP == null)
+        // motionType に応じて屈曲対象ボーンを選択
+        Transform mcp, pip, dip;
+        switch (motionType)
         {
-            Debug.LogWarning("[HandVisualizer] 人差し指ボーン（indexMCP/PIP/DIP）が未設定です。Inspector を確認してください。");
+            case AutoMotionType.MiddleFingerFlexion:
+                mcp = middleMCP; pip = middlePIP; dip = middleDIP;
+                break;
+            case AutoMotionType.RingFingerFlexion:
+                mcp = ringMCP; pip = ringPIP; dip = ringDIP;
+                break;
+            case AutoMotionType.IndexFingerFlexion:
+            default:
+                mcp = indexMCP; pip = indexPIP; dip = indexDIP;
+                break;
+        }
+
+        // A-5: 詳細な null チェックログ（どのボーンが null か特定する）
+        if (mcp == null || pip == null || dip == null)
+        {
+            Debug.LogWarning($"[HandVisualizer] {motionType} に必要なボーンが未設定です（mcp={(mcp != null ? mcp.name : "NULL")}, pip={(pip != null ? pip.name : "NULL")}, dip={(dip != null ? dip.name : "NULL")}）。Inspector を確認してください。");
             ResetAutoMotionState();
             yield break;
         }
+        Debug.Log($"[HandVisualizer] Flexing: mcp={mcp.name}, pip={pip.name}, dip={dip.name}");
 
-        Quaternion mcpBase = indexMCP.localRotation;
-        Quaternion pipBase = indexPIP.localRotation;
-        Quaternion dipBase = indexDIP.localRotation;
+        Quaternion mcpBase = mcp.localRotation;
+        Quaternion pipBase = pip.localRotation;
+        Quaternion dipBase = dip.localRotation;
 
         OnMarkerRequested?.Invoke($"MotionOnset_A_{motionType}");
 
@@ -369,17 +414,17 @@ public class HandVisualizer : MonoBehaviour
             float angle = Mathf.Lerp(0, indexFlexionAngle, t);
             Quaternion flexDelta = Quaternion.AngleAxis(angle, indexFlexionAxis);
 
-            indexMCP.localRotation = mcpBase * flexDelta;
-            indexPIP.localRotation = pipBase * flexDelta;
-            indexDIP.localRotation = dipBase * flexDelta;
+            mcp.localRotation = mcpBase * flexDelta;
+            pip.localRotation = pipBase * flexDelta;
+            dip.localRotation = dipBase * flexDelta;
 
             yield return null;
         }
 
         // 自然終了時：指ボーンを元の姿勢に復帰
-        indexMCP.localRotation = mcpBase;
-        indexPIP.localRotation = pipBase;
-        indexDIP.localRotation = dipBase;
+        mcp.localRotation = mcpBase;
+        pip.localRotation = pipBase;
+        dip.localRotation = dipBase;
 
         hasAutoMotionBaseRotation = false;
         ResetAutoMotionState();
@@ -431,8 +476,9 @@ public class HandVisualizer : MonoBehaviour
 
     private void HandleStateChanged(ExperimentState state)
     {
-        if (virtualHandRoot != null)
-            virtualHandRoot.SetActive(ShouldShowHand(state));
+        // ユーザー要望（2026-05-29）: LeftHand は常時表示するため、ステートに応じた
+        // 表示/非表示制御（旧 virtualHandRoot.SetActive(ShouldShowHand(state))）を削除。
+        // 仮想左手は Start() で常時 active にし、ここでは表示制御しない。
 
         // v5.3 修正: TaskB_Main 以外のステートでは固定遅延を 0 にリセットして
         // 練習・誘導・ベースライン・他タスク中に前回の delayMs が残らないようにする。
@@ -443,6 +489,9 @@ public class HandVisualizer : MonoBehaviour
         }
     }
 
+    // 注意（2026-05-29）: 現在このメソッドは未使用。LeftHand 常時表示方針により
+    // HandleStateChanged からの呼び出しを削除した。将来ステート連動の表示制御に
+    // 戻す可能性があるため、削除せず残置する。
     private static bool ShouldShowHand(ExperimentState state)
     {
         // v5.3: VASCheck 削除に伴い行削除
@@ -463,12 +512,18 @@ public class HandVisualizer : MonoBehaviour
         if (hasAutoMotionBaseRotation && virtualHandWrist != null)
             virtualHandWrist.localRotation = autoMotionBaseRotation;
 
-        // StopAutoMotion による中断時：人差し指ボーンをベース姿勢に復帰
+        // StopAutoMotion による中断時：3指分のボーンをベース姿勢に復帰
         if (hasAutoMotionBaseRotation)
         {
             if (indexMCP != null) indexMCP.localRotation = _indexMcpBase;
             if (indexPIP != null) indexPIP.localRotation = _indexPipBase;
             if (indexDIP != null) indexDIP.localRotation = _indexDipBase;
+            if (middleMCP != null) middleMCP.localRotation = _middleMcpBase;
+            if (middlePIP != null) middlePIP.localRotation = _middlePipBase;
+            if (middleDIP != null) middleDIP.localRotation = _middleDipBase;
+            if (ringMCP != null) ringMCP.localRotation = _ringMcpBase;
+            if (ringPIP != null) ringPIP.localRotation = _ringPipBase;
+            if (ringDIP != null) ringDIP.localRotation = _ringDipBase;
         }
 
         hasAutoMotionBaseRotation = false;

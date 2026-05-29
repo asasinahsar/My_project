@@ -28,7 +28,7 @@ public class SoAResponseUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI fistFeedbackText;
 
     [Header("Timing")]
-    [Tooltip("回答フェーズの制限時間（秒）。TaskBController の responseWindowSeconds と一致させること")]
+    [Tooltip("回答フェーズの制限時間（秒）。Start() 時に TaskBController.ResponseWindowSeconds と自動同期される。")]
     [SerializeField] private float responseWindowSeconds = 5.0f;
 
     private Coroutine countdownCoroutine;
@@ -38,6 +38,13 @@ public class SoAResponseUI : MonoBehaviour
     {
         if (soaPanel != null) soaPanel.SetActive(false);
         SetFistFeedbackActive(false);
+
+        // B-8: TaskBController から responseWindowSeconds を取得して同期（Inspector の二重管理を解消）
+        if (taskBController != null)
+        {
+            responseWindowSeconds = taskBController.ResponseWindowSeconds;
+            Debug.Log($"[SoAResponseUI] responseWindowSeconds を TaskBController から同期: {responseWindowSeconds}秒");
+        }
 
         if (ExperimentManager.Instance != null)
             ExperimentManager.Instance.OnStateChanged += HandleStateChanged;
@@ -56,6 +63,10 @@ public class SoAResponseUI : MonoBehaviour
         // v5.3 Phase E3 修正: TaskB_Main 入り以外では SoAResponseUI 全体を非表示にして
         // 練習・誘導・BlockRest・他タスク中の残留表示を防ぐ。
         gameObject.SetActive(false);
+
+        // Start() が遅延実行された場合でも現在ステートを即時反映
+        if (ExperimentManager.Instance != null)
+            HandleStateChanged(ExperimentManager.Instance.CurrentState);
     }
 
     private void OnDestroy()
@@ -77,10 +88,10 @@ public class SoAResponseUI : MonoBehaviour
 
     private void HandleStateChanged(ExperimentState state)
     {
-        // v5.3 Phase E3 修正: TaskB_Main 中のみ SoAResponseUI 全体を表示する。
-        // 練習・誘導・BlockRest・他タスク中は GameObject ごと非表示にして残留表示を防ぐ。
+        // v5.3 Phase E3 修正: TaskB_Main および Practice 中に SoAResponseUI を有効化する。
+        // 誘導・BlockRest・他タスク中は GameObject ごと非表示にして残留表示を防ぐ。
         // soaPanel 子要素自体は OnSoAWindowOpened で表示開始するため、ここでは常に非表示にしておく。
-        bool shouldShow = state == ExperimentState.TaskB_Main;
+        bool shouldShow = state == ExperimentState.TaskB_Main || state == ExperimentState.Practice;
         gameObject.SetActive(shouldShow);
         HideAll();
     }

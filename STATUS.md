@@ -3,29 +3,83 @@
 > このファイルは「今どこにいるか」だけを書く。作業の区切りで**まるごと上書き**して最新に保つ。
 > 終わったことは消して `LOG.md` に移す。確定した仕様は `Experiment.md` に書く。
 
-**最終更新：2026-05-25（Phase F 完了）**
+**最終更新：2026-05-29（解析パイプライン段階1 完了）**
+
+---
+
+## 解析パイプライン（tools/）
+
+LSL記録の `.xdf` を解析する Python ツールが `tools/` に揃った（詳細は `tools/README.md`）。
+
+| スクリプト | 役割 |
+|-----------|------|
+| `marker_monitor.py` | 実験中の LSL マーカーをリアルタイム表示（EMG PC で実行） |
+| `plot_emg_markers.py` | xdf の EMG 波形 + マーカーを重ねてプロット（目視確認） |
+| `emg_preprocess_epochs.py` | 前処理(bandpass→整流→RMS)→エポック切り出し→.npz 保存 |
+
+### 次の解析段階（段階2・未着手）
+- **指標算出**: TaskA の MOA（motor overflow amplitude = sync−async の t=0〜100ms RMS）、MOL、TaskB の PRI / τ_SoA（マハラノビス距離）
+- **NMF 筋シナジー解析**: ただし**現状 EMG が実質 1ch のため 2ch 以上が前提の NMF は実施不可**。次回記録で 2ch 確保が必要
+
+### 本計測時の運用上の注意（段階1で判明）
+- **記録は必ずブロック先頭から開始**（途中記録だと `BlockStart_*` を取りこぼし condition=unknown になる）
+- **Delsys センサーを 2ch 装着・有効化**（今回 ch1 のみ信号、2ch目欠落）
+- **TaskA 中の安静維持を徹底**（今回 TaskA 後半に大きな EMG 活動＝被験者が動いた可能性）
+
+---
+
+## ⚠️ コントローラ重複アタッチ（記録上は解決済みと推測）
+
+以前「`Trial 1/20` と `Trial 1/21` 並列発火」で TaskAController 重複が疑われたが、
+2026-05-29 記録の xdf マーカーは **TaskA が 21 系列のみ**（`/20` 混在なし）だったため、
+**重複は削除済みと判断**。新規にシーンを編集した際は念のため `t:TaskAController` /
+`t:TaskBController` で 1 つずつか再確認すること。
+
+---
+
+## 新実験順序（D-1 で確定）
+
+```
+Practice (TaskB練習, 3試行, 解析対象外)
+  ↓
+TaskB(async) 23試行
+  ↓ BlockRest (30秒)
+TaskA(async) 21試行
+  ↓ BlockRest (30秒)
+TaskB_Induction → TaskB_Baseline → TaskB(sync) 23試行
+  ↓ BlockRest (30秒)
+TaskA_Induction → TaskA_Baseline → TaskA(sync) 21試行
+  ↓
+Finished
+```
+
+async群と sync群が混在しない構造。VHI誘導は sync 群のみで TaskB/TaskA それぞれ向けに実施。
+
+---
 
 ---
 
 ## 全体方針
 
-`Experiment.md` は v5.3 に更新済み（仕様の正）。一方コードは v5.2 のままなので、
-`MIGRATION_v5.3.md`（`C:\Users\koike\Downloads\MIGRATION_v5.3.md`）の Phase A〜G を
-**1 Phase ＝ 1 コミット**で順に実装する。各 Phase 着手前に変更内容を提示し、許可を得てから着手する。
-
-> v5.2 で計画していた Phase 4「async＝Δt=500ms 固定遅延」「Phase 5：BlockRest 30秒手指運動UI」
-> 「Phase 6：仕様クリーンアップ」は v5.3 の設計変更により次の通り吸収・置換される：
-> - Phase 4 → 廃止（async＝VHI誘導なしに再定義。MIGRATION Phase D で扱う）
-> - Phase 5 → Experiment.md 4.5 節に記載済み（実装は別途、Phase G 後に検討）
-> - Phase 6 → Experiment.md は v5.3 で書き換え済み。README/コード側は各 Phase で対応
+`Experiment.md` は v5.3 に更新済み（仕様の正）。Phase A〜G の実装と VRテスト後の修正（B-1〜B-4、A-1、A-2）が完了。
 
 ---
 
 ## 進行中・次にやること
 
-### Phase G：練習ブロックの整理【優先度: 中】
-- Task A の練習を廃止
-- Task B 本計測前に `practiceTrialCount`（3 試行）の練習。練習試行は解析対象外フラグ付き
+### VHI誘導 Phase 1（筆なぞり）画面の作成【優先度: 中】
+- 実験者が筆で被験者の左手をなぞる
+- Unity 側でバーチャルハンドにも同期して「なぞられる」映像を提示
+- 被験者は静止
+- 1分間
+- Experiment.md §5 (Task B 向け誘導) Phase 1 仕様に基づく
+
+### B-4 検証：ピンチ → No Response問題の原因究明
+- VR テストで以下のログを確認：
+  - `[HandSignDetector] ピンチ検出！ (距離: X.Xcm)` が出るか
+  - `[TaskBController] OnHandSignDetectedHandler called` が出るか
+  - `[TaskBController] SubmitSoAResponse(1) called. Previous currentSoAResponse=...` が出るか
+- `SubmitSoAResponse(0)` が予期せず呼ばれていないか確認
 
 ### Phase C：操作系の左手移行・右手廃止【優先度: 低／実験完成に近づいてから】
 - `ExperimentUI.cs`：Aボタン/Bボタン応答の置換は Phase E で実施。キーボード Y/N はテスト用に残置
@@ -34,15 +88,19 @@
 
 ---
 
-## 未完了の Unity 側作業（VRデバッグ対応）
+## 未完了の Unity 側作業
 
-| 作業 | 対象 |
-|------|------|
-| `responseWindowSeconds` を Inspector で 5 秒に変更 | TaskBController / SoAResponseUI |
-| HandSignDetector の Inspector を再設定（`thumbTip` / `indexTip` をアタッチ） | HandSignDetector |
-| 左手 Interactor（Poke / Near-Far / Direct）を無効化 | XR Rig の左手 GameObject |
-| SoAResponseUI / ParticipantHUD を taskBPanel 外の常時 active な親階層下に配置 | Hierarchy 確認 |
-| TMP フォント: `NotoSansJP-VariableFont_wght SDF.asset` の Atlas Population Mode を Dynamic に | Font Asset |
+| 作業 | 対象 | 備考 |
+|------|------|------|
+| 左手 Interactor（Poke / Near-Far / Direct）を無効化 | XR Rig の左手 GameObject | |
+| TMP フォント: `NotoSansJP-VariableFont_wght SDF.asset` の Atlas Population Mode を Dynamic に | Font Asset | |
+| **`HandVisualizer` の Inspector で中指/薬指の MCP/PIP/DIP ボーンをアタッチ** | HandVisualizer | A-2 追加分。`middleMCP/PIP/DIP`, `ringMCP/PIP/DIP` |
+| **`TaskAHUD` GameObject を Hierarchy に追加（ExperimentCanvas 直下）** | TaskAHUD | A-4 リライト後。`milestoneText`（TextMeshProUGUI）と `audioSource`（AudioSource）をアタッチ。普段空白でマイルストーン時のみ表示。テキストは中央寄せ・大きめフォント推奨 |
+| `TaskAController` Inspector で `autoMotionIntervalMin=5f` / `autoMotionIntervalMax=10f` を確認 | TaskAController | A-2 追加分（旧 `autoMotionInterval` フィールドは廃止） |
+| `TaskBController` Inspector で `postFlexionDelaySeconds=3f` / `postPracticeDelaySeconds=3f` / `flexionCountPerTrial=3` を確認 | TaskBController | B-1, B-3, B-5 追加分 |
+| **`TaskBController.taskBPanelMessageText` に TaskB_Panel 内の `Text (TMP)` をアタッチ** | TaskBController | B-7 追加分。「これから本番です」を5秒表示するための参照 |
+| **SoAResponsePanel / ParticipantHUD の TextMeshProUGUI の Color を黒（#000000）に設定** | UI | 文字色変更（Editor 作業のみ） |
+| **HandVisualizer の指ボーンを `virtualLefthand` 配下に再アタッチ** | HandVisualizer | **最優先**：旧アタッチが `LeftHandAndroidXR`（実手側）になっていた可能性。実手側は XRHandSkeletonDriver が毎フレーム上書きするため屈曲が見えない。9個全部（index/middle/ring の MCP/PIP/DIP）を仮想手側に変更 |
 
 ---
 

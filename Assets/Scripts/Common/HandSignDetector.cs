@@ -48,15 +48,24 @@ public class HandSignDetector : MonoBehaviour
     public float CurrentPinchDistance { get; private set; } = float.PositiveInfinity;
 
     private float lastDetectionTime = -Mathf.Infinity;
+    private float _lastDistanceLogTime = -Mathf.Infinity;
+    private bool _hasLoggedNullWarning = false;
+    private const float DistanceLogInterval = 0.5f; // 距離ログの出力間隔（秒）
 
     private void Update()
     {
-        // 両 Tip が設定されていない場合はスキップ
+        // 両 Tip が設定されていない場合はスキップ（一回だけ警告）
         if (thumbTip == null || indexTip == null)
         {
+            if (!_hasLoggedNullWarning)
+            {
+                Debug.LogWarning("[HandSignDetector] thumbTip または indexTip が未設定。Inspector でアタッチしてください。ピンチ検出不可。");
+                _hasLoggedNullWarning = true;
+            }
             CurrentPinchDistance = float.PositiveInfinity;
             return;
         }
+        _hasLoggedNullWarning = false;
 
         CurrentPinchDistance = Vector3.Distance(thumbTip.position, indexTip.position);
 
@@ -67,6 +76,13 @@ public class HandSignDetector : MonoBehaviour
             return;
         }
 
+        // 回答フェーズ中は距離を定期ログ出力（閾値調整用）
+        if (Time.time - _lastDistanceLogTime >= DistanceLogInterval)
+        {
+            _lastDistanceLogTime = Time.time;
+            Debug.Log($"[HandSignDetector] 距離: {CurrentPinchDistance * 100f:F1}cm (閾値: {pinchThreshold * 100f:F1}cm)");
+        }
+
         // クールダウン中は再発火しない
         if (Time.time - lastDetectionTime < detectionCooldown) return;
 
@@ -74,6 +90,7 @@ public class HandSignDetector : MonoBehaviour
         if (CurrentPinchDistance < pinchThreshold)
         {
             lastDetectionTime = Time.time;
+            Debug.Log($"[HandSignDetector] ピンチ検出！ (距離: {CurrentPinchDistance * 100f:F1}cm)");
             OnHandSignDetected?.Invoke();
         }
     }

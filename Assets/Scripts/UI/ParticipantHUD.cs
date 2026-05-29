@@ -78,6 +78,11 @@ public class ParticipantHUD : MonoBehaviour
         if (pacingCueCircle != null)
             pacingCueCircle.gameObject.SetActive(false);
         gameObject.SetActive(false);
+
+        // taskBPanel が非アクティブな状態で Start() が遅延実行された場合、
+        // イベントを見逃している可能性があるため現在ステートを即時適用する。
+        if (ExperimentManager.Instance != null)
+            HandleStateChanged(ExperimentManager.Instance.CurrentState);
     }
 
     private void OnDestroy()
@@ -95,11 +100,11 @@ public class ParticipantHUD : MonoBehaviour
             ExperimentManager.Instance.OnStateChanged -= HandleStateChanged;
     }
 
-    // v5.3 Phase E3 修正: TaskB_Main 中のみ HUD を表示する。
-    // 練習・誘導・BlockRest・他タスク中は非表示にして残留表示を防ぐ。
+    // v5.3 Phase E3 修正: TaskB_Main および Practice 中に HUD を表示する。
+    // 誘導・BlockRest・他タスク中は非表示にして残留表示を防ぐ。
     private void HandleStateChanged(ExperimentState state)
     {
-        bool shouldShow = state == ExperimentState.TaskB_Main;
+        bool shouldShow = state == ExperimentState.TaskB_Main || state == ExperimentState.Practice;
         gameObject.SetActive(shouldShow);
 
         if (shouldShow)
@@ -110,6 +115,14 @@ public class ParticipantHUD : MonoBehaviour
             SetTexts("", "", "");
             if (pacingCueCircle != null)
                 pacingCueCircle.gameObject.SetActive(false);
+
+            // B-6: ステートに応じて totalTrialsForDisplay を動的設定
+            if (taskBController != null)
+            {
+                totalTrialsForDisplay = (state == ExperimentState.Practice)
+                    ? taskBController.PracticeTrialCount
+                    : taskBController.TotalTrialsPerBlock;
+            }
         }
     }
 
@@ -163,7 +176,7 @@ public class ParticipantHUD : MonoBehaviour
     private void HandleResponseWindowOpened()
     {
         if (instructionText != null)
-            instructionText.text = "回答時間 — 握りこぶしで Yes、無反応で No";
+            instructionText.text = "回答時間 — ピンチ（親指+人差し指）で Yes、無反応で No";
         if (pacingCueCircle != null)
             pacingCueCircle.gameObject.SetActive(false);
         if (flexionProgressText != null)
