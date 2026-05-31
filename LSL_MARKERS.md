@@ -37,8 +37,8 @@
 | `InductionStart_A_{condition}` | Task A 誘導開始（筆なぞり開始） | VHIInductionController |
 | `InductionEnd_A_{condition}` | Task A 誘導 Phase 1 終了 | VHIInductionController |
 | `InductionStart_B` | Task B 誘導開始（筆なぞり開始） | VHIInductionController |
-| `ActiveMovementStart_B` | Task B 慣らし運動開始（Phase 2） | VHIInductionController |
-| `ActiveMovementEnd_B` | Task B 慣らし運動終了 | VHIInductionController |
+| ~~`ActiveMovementStart_B`~~ | **廃止（2026-05-29）** 旧 Task B 慣らし運動開始。Induction を60秒筆なぞりのみに統一し Phase 2 廃止 | — |
+| ~~`ActiveMovementEnd_B`~~ | **廃止（2026-05-29）** 旧 Task B 慣らし運動終了 | — |
 | `InductionEnd_B` | Task B 誘導終了 | VHIInductionController |
 | `BaselineStart_A_{condition}` | Task A 安静ベースライン計測開始（30秒） | VHIInductionController |
 | `BaselineEnd_A_{condition}` | Task A 安静ベースライン計測終了 | VHIInductionController |

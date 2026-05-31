@@ -3,7 +3,21 @@
 > このファイルは「今どこにいるか」だけを書く。作業の区切りで**まるごと上書き**して最新に保つ。
 > 終わったことは消して `LOG.md` に移す。確定した仕様は `Experiment.md` に書く。
 
-**最終更新：2026-05-29（解析パイプライン段階1 完了）**
+**最終更新：2026-05-29（EMG 3ch確定・指示文改訂・筆なぞりアニメ実装 完了）**
+
+---
+
+## 直近の Unity 側必須作業（コード実装に伴うアタッチ）
+
+| 作業 | 対象 | 内容 |
+|------|------|------|
+| TaskInstructionUI を新規 GameObject に作成しアタッチ | ExperimentCanvas配下 | `taskAInstructionText`=TaskA_Panel/Text(TMP)、`taskBInstructionText`=TaskB_Panel/Text(TMP) を配線。TaskA_Manager/TaskB_Manager の `taskInstructionUI` にも参照設定 |
+| BrushStrokeAnimator を GameObject に作成しアタッチ | 任意（手の近く推奨） | `brush`=既存筆モデル、`strokeStart`/`strokeEnd`=バーチャル左手ボーン配下に配置（手の甲：手首→指先）。VHIInductionController の `brushStrokeAnimator` に参照設定 |
+| EMG 3ch 装着（FDS/FCR/EDC） | 実機 | Experiment.md §4.2 の電極配置表に従う |
+| SoAResponse_Panel の Image 無効化 | UI | 文字だけ表示・背景非表示 |
+| 白い丸（Sphere Interaction Caster）の可視化無効化 | XR Rig | 該当 Interactor の caster 可視化/Reticle を無効化 |
+
+---
 
 ---
 

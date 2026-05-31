@@ -13,6 +13,8 @@ public class TaskAController : MonoBehaviour
     [SerializeField] private HandVisualizer handVisualizer;
     [FormerlySerializedAs("markerSender")]
     [SerializeField] private MonoBehaviour markerSenderBehaviour;
+    [Tooltip("指示文の読み時間取得用（未設定なら autoMotionStartDelay のみ）")]
+    [SerializeField] private TaskInstructionUI taskInstructionUI;
 
     [Header("Settings")]
     [Tooltip("A-2: 21試行（人差し指・中指・薬指 各7回ずつ）")]
@@ -145,9 +147,13 @@ public class TaskAController : MonoBehaviour
         // A-2: 試行シーケンスを生成（各指 trialsPerBlock/3 回ずつ → Fisher-Yates シャッフル）
         List<AutoMotionType> motionSequence = GenerateMotionSequence(trialsPerBlock);
 
-        // v5.3 Phase F: ブロック最初の試行前に autoMotionStartDelay 秒待機。
+        // v5.3 Phase F: ブロック最初の試行前に待機。
         // 待機中もハンドトラッキングは継続され手の微細な揺れが VR にリアルタイム反映される。
-        yield return new WaitForSeconds(autoMotionStartDelay);
+        // 指示文の読み時間（文字数ベース自動計算）と autoMotionStartDelay の大きい方を採用し、
+        // 被験者が指示を読み終えてから自動屈曲を開始する。
+        float readSec = taskInstructionUI != null
+            ? taskInstructionUI.GetReadSecondsForState(ExperimentState.TaskA_Main) : 0f;
+        yield return new WaitForSeconds(Mathf.Max(autoMotionStartDelay, readSec));
 
         for (int trial = 1; trial <= trialsPerBlock; trial++)
         {

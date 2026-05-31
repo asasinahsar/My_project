@@ -90,6 +90,9 @@ public class HandVisualizer : MonoBehaviour
 
     public float CurrentSpeed { get; private set; }
     public bool EnableOnsetDetection { get; set; } = false;
+    // VHI誘導中に手の表示を固定するフラグ。true の間、仮想手への姿勢反映を止め
+    // 最後の姿勢で静止させる（筆が手を隠してトラッキングがロスト→カクつくのを防ぐ）。
+    public bool FreezePose { get; set; } = false;
 
     public class HandPose
     {
@@ -187,6 +190,10 @@ public class HandVisualizer : MonoBehaviour
     {
         foreach (Transform child in t)
         {
+            // 筆経路などの補助オブジェクト（StrokeStart / StrokeEnd 等）はボーン収集から除外する。
+            // これらを手のボーン配下に置くと virtualJoints と actualJoints のインデックスが
+            // ズレ、間違ったボーンに姿勢がコピーされて手が崩壊するため（2026-05-31 修正）。
+            if (child.name.StartsWith("Stroke")) continue;
             list.Add(child);
             CollectRecursive(child, list);
         }
@@ -278,7 +285,11 @@ public class HandVisualizer : MonoBehaviour
 
         poseBuffer.Commit(currentTime);
 
-        ApplyDelayedPose();
+        // FreezePose 中は仮想手への姿勢反映を止め、最後の姿勢で固定する。
+        // VHI誘導中に筆が手を隠してトラッキングがロスト→カクつくのを防ぐため。
+        // （poseBuffer への記録は継続するので解析用データは欠落しない）
+        if (!FreezePose)
+            ApplyDelayedPose();
     }
 
     // ----------------------------------------------------------------

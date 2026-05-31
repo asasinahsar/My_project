@@ -41,6 +41,9 @@ public class TaskBController : MonoBehaviour
     [Header("Phase E: Hand Sign Detector")]
     [SerializeField] private HandSignDetector handSignDetector;
 
+    [Tooltip("指示文の読み時間取得用（未設定なら preMainNoticeSeconds のみ）")]
+    [SerializeField] private TaskInstructionUI taskInstructionUI;
+
     // v5.3 Phase D: async / sync の 2 ブロック構造（async 先 → sync 後）
     private const int TotalBlocks = 2;
     private int currentBlockIndex = 0;        // 0:async, 1:sync
@@ -309,11 +312,15 @@ public class TaskBController : MonoBehaviour
         SendMarker($"BlockStart_B_{CurrentCondition}");
 
         // B-7: TaskB_Panel に「これから本番です」を表示してから試行開始
+        // 指示文の読み時間（文字数ベース自動計算）と preMainNoticeSeconds の大きい方を採用し、
+        // 被験者が指示を読み終えてから試行を開始する。
         if (taskBPanelMessageText != null)
         {
+            float readSec = taskInstructionUI != null
+                ? taskInstructionUI.GetReadSecondsForState(ExperimentState.TaskB_Main) : 0f;
             taskBPanelMessageText.text = preMainNoticeMessage;
             SendMarker($"PreMainNotice_B_{CurrentCondition}");
-            yield return new WaitForSeconds(preMainNoticeSeconds);
+            yield return new WaitForSeconds(Mathf.Max(preMainNoticeSeconds, readSec));
             taskBPanelMessageText.text = "";
         }
 
