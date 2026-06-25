@@ -951,10 +951,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3302e5fa1dd873f4da7cf0e7c4156d38, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TestModeController
-  handVisualizer: {fileID: 1234352776}
-  testMenuPanel: {fileID: 0}
-  testRunningPanel: {fileID: 0}
-  virtualHandRoot: {fileID: 1433921989}
 --- !u!1 &270334411
 GameObject:
   m_ObjectHideFlags: 0

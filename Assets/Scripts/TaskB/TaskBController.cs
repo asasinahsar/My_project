@@ -490,6 +490,17 @@ public class TaskBController : MonoBehaviour
         CompleteCurrentBlock();
     }
 
+    // C（2026-06-01）: ExpStart 時にブロック進捗をリセットする。
+    // 冒頭の誤操作（PhaseSkipped 連発）で completedBlocks が進み、async ブロックが
+    // 飛ばされて sync から始まる問題を防ぐ。
+    public void ResetBlockProgress()
+    {
+        completedBlocks = 0;
+        currentBlockIndex = 0;
+        blockCompletionRecorded = false;
+        lastHandledState = ExperimentState.Idle;
+    }
+
     public void AbortTask()
     {
         StopAllCoroutines();

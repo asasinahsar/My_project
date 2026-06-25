@@ -88,7 +88,6 @@ Common/
   ExperimentManager.cs     実験ステート管理
   HandVisualizer.cs        実手トラッキング・仮想手制御・自動モーション
   HandSignDetector.cs       左手ハンドサイン（ピンチ：親指+人差し指タッチ）検出
-  TestModeController.cs     テストモード制御
   VHIInductionController.cs VHI誘導フロー制御
   RingBuffer.cs            リングバッファ（遅延用）
 LSL/

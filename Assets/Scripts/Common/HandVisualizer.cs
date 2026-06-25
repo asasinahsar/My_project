@@ -59,9 +59,8 @@ public class HandVisualizer : MonoBehaviour
     [SerializeField] private Vector3 indexFlexionAxis = Vector3.right;
     [SerializeField] private float indexFlexionAngle = 30f;
 
-    [Header("Test Mode Settings (Wrist Flexion)")]
-    [SerializeField] private Vector3 testWristFlexionAxis = Vector3.right;
-    [SerializeField] private float testWristFlexionAngle = 45f;
+    // テストモード廃止（2026-06-21）：testWristFlexionAxis / testWristFlexionAngle を削除
+    // （TestMotionRoutine 専用フィールドだった）。
 
     [Header("Visibility Control")]
     [SerializeField] private GameObject virtualHandRoot;
@@ -350,11 +349,8 @@ public class HandVisualizer : MonoBehaviour
         autoMotionCoroutine = StartCoroutine(AutoMotionRoutine(motionType, duration));
     }
 
-    public void StartTestModeMotion()
-    {
-        StopAutoMotion();
-        autoMotionCoroutine = StartCoroutine(TestMotionRoutine());
-    }
+    // テストモード廃止（2026-06-21）：StartTestModeMotion() / TestMotionRoutine() を削除。
+    // スタート画面のテストモード（TestModeController）専用で、他からの参照はなかった。
 
     public void StopAutoMotion()
     {
@@ -438,46 +434,6 @@ public class HandVisualizer : MonoBehaviour
         dip.localRotation = dipBase;
 
         hasAutoMotionBaseRotation = false;
-        ResetAutoMotionState();
-    }
-
-    private IEnumerator TestMotionRoutine()
-    {
-        Debug.Log("[HandVisualizer] TestMotionRoutine 開始");
-        isAutoMode = true;
-
-        if (virtualHandWrist == null)
-        {
-            Debug.LogWarning("[HandVisualizer] virtualHandWrist が未設定です。");
-            ResetAutoMotionState();
-            yield break;
-        }
-
-        Quaternion baseRot = virtualHandWrist.localRotation;
-        Debug.Log("[HandVisualizer] baseRot = " + baseRot.eulerAngles);
-
-        float duration = 2.0f;
-        float elapsed = 0f;
-
-        while (elapsed < duration)
-        {
-            elapsed += Time.deltaTime;
-
-            float t = Mathf.PingPong(elapsed, duration / 2f) / (duration / 2f);
-            t = Mathf.SmoothStep(0, 1, t);
-
-            float currentAngle = Mathf.Lerp(0, testWristFlexionAngle, t);
-            Quaternion flexRot = Quaternion.AngleAxis(currentAngle, testWristFlexionAxis);
-
-            virtualHandWrist.localRotation = baseRot * flexRot;
-
-            yield return null;
-        }
-
-        virtualHandWrist.localRotation = baseRot;
-        hasAutoMotionBaseRotation = false;
-
-        Debug.Log("[HandVisualizer] TestMotionRoutine 終了");
         ResetAutoMotionState();
     }
 

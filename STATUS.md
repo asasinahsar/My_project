@@ -3,145 +3,84 @@
 > このファイルは「今どこにいるか」だけを書く。作業の区切りで**まるごと上書き**して最新に保つ。
 > 終わったことは消して `LOG.md` に移す。確定した仕様は `Experiment.md` に書く。
 
-**最終更新：2026-05-29（EMG 3ch確定・指示文改訂・筆なぞりアニメ実装 完了）**
+**最終更新：2026-06-21（テストモード廃止＋開始タスク分岐を実装。EMG 4フィルタ適用は引き続き最優先で未着手）**
 
 ---
 
-## 直近の Unity 側必須作業（コード実装に伴うアタッチ）
+## 🔴 最優先：次セッションで着手するタスク
 
-| 作業 | 対象 | 内容 |
-|------|------|------|
-| TaskInstructionUI を新規 GameObject に作成しアタッチ | ExperimentCanvas配下 | `taskAInstructionText`=TaskA_Panel/Text(TMP)、`taskBInstructionText`=TaskB_Panel/Text(TMP) を配線。TaskA_Manager/TaskB_Manager の `taskInstructionUI` にも参照設定 |
-| BrushStrokeAnimator を GameObject に作成しアタッチ | 任意（手の近く推奨） | `brush`=既存筆モデル、`strokeStart`/`strokeEnd`=バーチャル左手ボーン配下に配置（手の甲：手首→指先）。VHIInductionController の `brushStrokeAnimator` に参照設定 |
-| EMG 3ch 装着（FDS/FCR/EDC） | 実機 | Experiment.md §4.2 の電極配置表に従う |
-| SoAResponse_Panel の Image 無効化 | UI | 文字だけ表示・背景非表示 |
-| 白い丸（Sphere Interaction Caster）の可視化無効化 | XR Rig | 該当 Interactor の caster 可視化/Reticle を無効化 |
+### mion.xdf に 4 フィルタを適用（未着手・要パラメータ確認）
+ユーザー依頼：「mion.xdf に bandpass / Notch / full wave rectification / low pass の 4 フィルタをかける」。
 
----
-
----
-
-## 解析パイプライン（tools/）
-
-LSL記録の `.xdf` を解析する Python ツールが `tools/` に揃った（詳細は `tools/README.md`）。
-
-| スクリプト | 役割 |
-|-----------|------|
-| `marker_monitor.py` | 実験中の LSL マーカーをリアルタイム表示（EMG PC で実行） |
-| `plot_emg_markers.py` | xdf の EMG 波形 + マーカーを重ねてプロット（目視確認） |
-| `emg_preprocess_epochs.py` | 前処理(bandpass→整流→RMS)→エポック切り出し→.npz 保存 |
-
-### 次の解析段階（段階2・未着手）
-- **指標算出**: TaskA の MOA（motor overflow amplitude = sync−async の t=0〜100ms RMS）、MOL、TaskB の PRI / τ_SoA（マハラノビス距離）
-- **NMF 筋シナジー解析**: ただし**現状 EMG が実質 1ch のため 2ch 以上が前提の NMF は実施不可**。次回記録で 2ch 確保が必要
-
-### 本計測時の運用上の注意（段階1で判明）
-- **記録は必ずブロック先頭から開始**（途中記録だと `BlockStart_*` を取りこぼし condition=unknown になる）
-- **Delsys センサーを 2ch 装着・有効化**（今回 ch1 のみ信号、2ch目欠落）
-- **TaskA 中の安静維持を徹底**（今回 TaskA 後半に大きな EMG 活動＝被験者が動いた可能性）
+- **対象データ**：`C:\Users\koike\Downloads\mion\mion.xdf`（EMG ストリーム。ch0=手首屈筋 FCR / ch1=要確認。有効 2ch、3ch目 EDC は欠落）
+- **適用順序（標準的な EMG リニアエンベロープ処理）**：
+  1. **Bandpass filter**（butter 4次・filtfilt ゼロ位相、20–450Hz）← 既存 `tools/emg_preprocess_epochs.py` に実装済
+  2. **Notch filter**（`scipy.signal.iirnotch`、**日本＝50Hz** 商用電源、Q=30 目安）← **未実装・新規追加**
+  3. **Full wave rectification**（`np.abs`）← 既存に実装済
+  4. **Low pass filter**（butter 低域、**~5–10Hz** でリニアエンベロープ）← **未実装・新規追加（RMS とは別物）**
+- **既存資産**：`tools/emg_preprocess_epochs.py` が bandpass + 整流 + RMS を実装済。これに Notch と専用 low-pass を足す形で拡張するか、別スクリプトを新規作成する。
+- **着手前に確認すること（CLAUDE.md：コード生成前に許可を取る）**：
+  - Notch 周波数 = 50Hz（日本）でよいか
+  - bandpass 帯域 = 20–450Hz でよいか
+  - low-pass カットオフ = 5Hz か 10Hz か
+  - 出力（フィルタ後波形のプロット保存先・npz 保存の要否）
 
 ---
 
-## ⚠️ コントローラ重複アタッチ（記録上は解決済みと推測）
+## mion.xdf 解析（完了済み・結論）
 
-以前「`Trial 1/20` と `Trial 1/21` 並列発火」で TaskAController 重複が疑われたが、
-2026-05-29 記録の xdf マーカーは **TaskA が 21 系列のみ**（`/20` 混在なし）だったため、
-**重複は削除済みと判断**。新規にシーンを編集した際は念のため `t:TaskAController` /
-`t:TaskBController` で 1 つずつか再確認すること。
+被験者 mion の本計測 xdf を解析済み。生成物は `C:\Users\koike\Downloads\` 配下：
+- `mion_plot.png`（EMG＋マーカー重畳）
+- `mion_epochs.npz`（エポック）
+- `mion_analysis.png`（指標）
+- `mion_syncasync.png`（sync/async 比較）
+- `mion_実験まとめ.md`（Obsidian 用まとめ）
 
----
+### 重要な前提（イレギュラー）
+- **ナビ暴走**：記録冒頭にコントローラ Ray の誤クリックで `PhaseSkipped/PhaseBack` が連発し、**condition ラベルが全て sync に化けた**。解析は**オンセット時刻でブロックを再ラベル**して対処。
+- **実験順序（正）**：TaskB-async → TaskA-async → TaskB-sync → TaskA-sync。
+- **ブロック時刻（再ラベル後）**：TaskB block0 0–545s=async / block1 947–1467s=sync、TaskA block0 635–752s=async(**15試行**) / block1 1629–1780s=sync(21試行)。
+- **TaskA-async が 15 試行**になった原因＝`PhaseBack_TaskA_Main`(911.7s) の誤発火でブロック中断（50% マイルストーン 876.7s 直後）。
 
-## 新実験順序（D-1 で確定）
+### 結論
+- **MOA 未検出**（sync<async、有意差なし）。手指自動屈曲後のオーバーフローは**時間ロックせず**（ピーク ×1.08–1.16 が 287–467ms に散発、MotionOnset と非同期）。
+- **SoA Yes 率 async=sync で同一**（Staircase の決定論的挙動による）。
+- 運動準備窓 EMG ch0 は sync<async で有意（p<0.001）だが**順序効果と交絡**。
+- τ_SoA ≈ 300–400ms。
 
-```
-Practice (TaskB練習, 3試行, 解析対象外)
-  ↓
-TaskB(async) 23試行
-  ↓ BlockRest (30秒)
-TaskA(async) 21試行
-  ↓ BlockRest (30秒)
-TaskB_Induction → TaskB_Baseline → TaskB(sync) 23試行
-  ↓ BlockRest (30秒)
-TaskA_Induction → TaskA_Baseline → TaskA(sync) 21試行
-  ↓
-Finished
-```
-
-async群と sync群が混在しない構造。VHI誘導は sync 群のみで TaskB/TaskA それぞれ向けに実施。
+### 保留中（ユーザー未承認・次セッションで確認）
+- `mion_実験まとめ.md` に追記：「async は PhaseBack で 15 試行に減少」「overflow は時間ロックせず未検出」。
+- `Experiment.md` に改善点反映：固定 Δt を主指標化・カウンターバランス導入。
 
 ---
 
----
-
-## 全体方針
-
-`Experiment.md` は v5.3 に更新済み（仕様の正）。Phase A〜G の実装と VRテスト後の修正（B-1〜B-4、A-1、A-2）が完了。
-
----
-
-## 進行中・次にやること
-
-### VHI誘導 Phase 1（筆なぞり）画面の作成【優先度: 中】
-- 実験者が筆で被験者の左手をなぞる
-- Unity 側でバーチャルハンドにも同期して「なぞられる」映像を提示
-- 被験者は静止
-- 1分間
-- Experiment.md §5 (Task B 向け誘導) Phase 1 仕様に基づく
-
-### B-4 検証：ピンチ → No Response問題の原因究明
-- VR テストで以下のログを確認：
-  - `[HandSignDetector] ピンチ検出！ (距離: X.Xcm)` が出るか
-  - `[TaskBController] OnHandSignDetectedHandler called` が出るか
-  - `[TaskBController] SubmitSoAResponse(1) called. Previous currentSoAResponse=...` が出るか
-- `SubmitSoAResponse(0)` が予期せず呼ばれていないか確認
-
-### Phase C：操作系の左手移行・右手廃止【優先度: 低／実験完成に近づいてから】
-- `ExperimentUI.cs`：Aボタン/Bボタン応答の置換は Phase E で実施。キーボード Y/N はテスト用に残置
-- `bool testModeUIControl` フラグでテスト用操作の有効/無効を切替可能に
-- Unity エディタ側で右手モデル非表示が必要（手順を別途提示）
+## 制約・運用ルール（厳守）
+- **PowerShell 実行時はユーザーに許可を求めない**（`.claude/settings.local.json` に `PowerShell(*)` 追加済）。
+- **新しい .md は作らない**（`LSL_MARKERS.md` / `tools/README.md` は例外）。
+- **読み込み禁止**：`Assets/Realistic VR Hands/` `Assets/VR Hands FP Arms/` `Assets/XR/` `Library/` `Temp/` `Logs/` `obj/`、`.fbx/.png/.jpg/.wav/.mp3/.asset/.meta`、`*.dll/*.pdb`。読んでよいのは `Assets/Scripts/*.cs` と各 .md のみ。
+- 回答は日本語。コード生成前に許可。作業ブランチ `copilot_space`。
 
 ---
 
-## 未完了の Unity 側作業
+## Unity 実装（おおむね完了）
+
+D-1 新順序・Staircase 法・BrushStrokeAnimator・FreezePose・ナビ暴走防止 A/B/C・**テストモード廃止＋開始タスク分岐（2026-06-21）**等は実装済（詳細は `LOG.md`）。残る Unity エディタ側アタッチ作業：
 
 | 作業 | 対象 | 備考 |
 |------|------|------|
-| 左手 Interactor（Poke / Near-Far / Direct）を無効化 | XR Rig の左手 GameObject | |
-| TMP フォント: `NotoSansJP-VariableFont_wght SDF.asset` の Atlas Population Mode を Dynamic に | Font Asset | |
-| **`HandVisualizer` の Inspector で中指/薬指の MCP/PIP/DIP ボーンをアタッチ** | HandVisualizer | A-2 追加分。`middleMCP/PIP/DIP`, `ringMCP/PIP/DIP` |
-| **`TaskAHUD` GameObject を Hierarchy に追加（ExperimentCanvas 直下）** | TaskAHUD | A-4 リライト後。`milestoneText`（TextMeshProUGUI）と `audioSource`（AudioSource）をアタッチ。普段空白でマイルストーン時のみ表示。テキストは中央寄せ・大きめフォント推奨 |
-| `TaskAController` Inspector で `autoMotionIntervalMin=5f` / `autoMotionIntervalMax=10f` を確認 | TaskAController | A-2 追加分（旧 `autoMotionInterval` フィールドは廃止） |
-| `TaskBController` Inspector で `postFlexionDelaySeconds=3f` / `postPracticeDelaySeconds=3f` / `flexionCountPerTrial=3` を確認 | TaskBController | B-1, B-3, B-5 追加分 |
-| **`TaskBController.taskBPanelMessageText` に TaskB_Panel 内の `Text (TMP)` をアタッチ** | TaskBController | B-7 追加分。「これから本番です」を5秒表示するための参照 |
-| **SoAResponsePanel / ParticipantHUD の TextMeshProUGUI の Color を黒（#000000）に設定** | UI | 文字色変更（Editor 作業のみ） |
-| **HandVisualizer の指ボーンを `virtualLefthand` 配下に再アタッチ** | HandVisualizer | **最優先**：旧アタッチが `LeftHandAndroidXR`（実手側）になっていた可能性。実手側は XRHandSkeletonDriver が毎フレーム上書きするため屈曲が見えない。9個全部（index/middle/ring の MCP/PIP/DIP）を仮想手側に変更 |
+| **StartMenu に「TaskAから」「TaskBから」2ボタンを配置**し OnClick 設定（`StartExperimentFromTaskA`/`StartExperimentFromTaskB`）。旧「本番／テスト」ボタンは削除 | StartMenuPanel | 2026-06-21 改修。テストモード分岐撤去 |
+| **テストモード関連 GameObject 削除**：TestModeController（Missing Script 化）/ testMenuPanel / experimentMenuPanel / testRunningPanel | Hierarchy | TestModeController.cs はスクリプトごと削除済 |
+| ParticipantHUD/SoAResponseUI が常時 active な親階層下にあるか確認 | Hierarchy | Practice/TaskB_Main で自身を SetActive 制御するため |
+| EMG **最低 2ch（できれば 3ch：FDS/FCR/EDC）装着**／Delsys を確実に有効化 | 実機 | 今回 ch1 中心・3ch目(EDC)欠落。次回は最低 2ch 確保（NMF 筋シナジーに必須） |
+| 指ボーン（index/middle/ring の MCP/PIP/DIP）を `virtualLefthand` 配下にアタッチ | HandVisualizer | 実手側 `LeftHandAndroidXR` だと XRHandSkeletonDriver が上書きし屈曲が見えない |
+| `TaskAHUD` をアタッチ（`milestoneText` / `audioSource`） | TaskAHUD | マイルストーン通知用 |
+| `BrushStrokeAnimator` の `brush`/`strokeStart`/`strokeEnd` 配線 | VHIInductionController | strokeStart/End 名は "Stroke" 始まりで CollectRecursive 除外済 |
+| `TaskInstructionUI` の TMP 配線 | ExperimentCanvas | taskA/B InstructionText |
+| 白い丸（pinch visual）非表示 | XR Rig | PinchPointFollow を無効化 |
 
 ---
 
-## 確定済みの設計決定
-
-| 項目 | 確定値 |
-|------|--------|
-| Yes ハンドサインの具体形 | **ピンチ（親指+人差し指タッチ）** ※握りこぶしから変更（2026-05-25） |
-| 回答フェーズの制限時間 | **初期値 5 秒**（`responseWindowSeconds`、SerializeField で公開） |
-| 固定遅延の実装方式 | **RingBuffer 流用**（Δt 過去のポーズを描画） |
-| 屈曲検出方式 | **両方実装・Inspector 切替**（VelocityBased / AngleVelocityBased） |
-| 音素材 | **AudioClip 実行時生成**（サイン波ビープ、外部素材依存ゼロ） |
-| QUEST 推定 | **ブロックごとに再初期化**（async/sync 独立） |
-| BlockRest 戻り先 | `lastStateBeforeBlockRest` 記録ベース |
-| TaskA_Main → Next | **無条件 Finished** |
-| Practice 中の遅延 | **delayMs = 0 強制**（HandleStateChanged で TaskB_Main 以外はリセット） |
-
-## 残る未確定事項（パイロット実験で決定）
-
-| 項目 | タイミング |
-|------|-----------|
-| 屈曲検出の閾値（`velocityThreshold` / `angularVelocityThreshold`） | パイロット実験で調整 |
-| 所要時間（試行数縮小検討） | パイロット実験で決定 |
-| Phase F の `autoMotionInterval` 最終値 | パイロット |
-
----
-
-## Phase H（将来）
-
-- ハンドサインによる Task リセット機能。**今回は未実装**。設計メモのみ残置。
+## 本計測・運用上の注意
+- **記録は必ずブロック先頭から開始**（途中記録だと `BlockStart_*` を取りこぼし condition=unknown）。
+- **ナビ暴走防止**：計測中はコントローラ Ray の誤クリックに注意（`lockNavigationDuringMeasurement=true` 実装済）。
+- **TaskA 中の安静維持**を徹底（被験者が動くと EMG に混入）。
